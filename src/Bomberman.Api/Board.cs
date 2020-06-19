@@ -34,6 +34,7 @@ namespace Bomberman.Api
 
         private static Point[] _locations;
         public Point[] Locations => _locations;
+        private static Point[,][] _neighbouringLocations;
         
         public Board(string boardString)
         {
@@ -52,11 +53,18 @@ namespace Bomberman.Api
             if (_locations == null || _locations.Length != boardString.Length)
             {
                 _locations = Enumerable.Range(0, Size * Size).Select(i => new Point(i % Size, i / Size)).ToArray();
+                _neighbouringLocations = new Point[Size,Size][];
+                foreach (var l in _locations)
+                {
+                    _neighbouringLocations[l.Y, l.X] = _locations.Where(ll => Math.Abs(ll.X - l.X) + Math.Abs(ll.Y - l.Y) == 1).ToArray();
+                }
             }
+
+            
 
             //BoardString = boardString.Replace("\n", "");
             //LengthXY = new LengthToXY(Size); 
-        }        
+        }
 
         /// <summary>
         /// GameBoard size (actual board size is Size x Size cells)
@@ -69,6 +77,12 @@ namespace Bomberman.Api
         //        //return (int)Math.Sqrt(BoardString.Length);
         //    }
         //}
+
+
+        public Point[] GetNeighbouringLocations(Point location)
+        {
+            return _neighbouringLocations[location.Y, location.X];
+        }
 
         public Point GetBomberman()
         {
@@ -201,6 +215,29 @@ namespace Bomberman.Api
         public List<Point> GetDestroyableWalls()
         {
             return Get(Element.DESTROYABLE_WALL);
+        }
+
+        private static Element[] BombIndicators = new[]
+        {
+            Element.BOMB_TIMER_1, 
+            Element.BOMB_TIMER_2,
+            Element.BOMB_TIMER_3, 
+            Element.BOMB_TIMER_4, 
+            Element.BOMB_TIMER_5, 
+            Element.BOMB_BOMBERMAN,
+            Element.OTHER_BOMB_BOMBERMAN
+        };
+
+        private static Element[] BombPotentialIndicators = BombIndicators.Concat(new[] {Element.MEAT_CHOPPER}).ToArray();
+
+        public bool IsBombAt(Point location)
+        {
+            return IsAnyOfAt(location, BombIndicators);
+        }
+
+        public bool CanBombBeAt(Point location)
+        {
+            return IsAnyOfAt(location, BombPotentialIndicators);
         }
 
         public List<Point> GetBombs()

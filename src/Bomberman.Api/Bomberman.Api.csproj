@@ -51,8 +51,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BomberState.cs" />
+    <Compile Include="Bombs.cs" />
+    <Compile Include="BombState.cs" />
     <Compile Include="Element.cs" />
     <Compile Include="LengthToXY.cs" />
+    <Compile Include="MeatchoperState.cs" />
+    <Compile Include="PerkState.cs" />
     <Compile Include="Point.cs" />
     <Compile Include="Move.cs" />
     <Compile Include="AbstractSolver.cs" />
@@ -61,6 +66,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="MySolver.cs" />
     <Compile Include="MyBaseSolver.cs" />
+    <Compile Include="Settings.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

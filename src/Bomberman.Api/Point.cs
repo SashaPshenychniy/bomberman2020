@@ -64,7 +64,7 @@ namespace Bomberman.Api
         /// </summary>
         public Point ShiftUp(int delta = 1)
         {
-            return new Point(X, Y + delta);
+            return new Point(X, Y - delta);
         }
 
         /// <summary>
@@ -72,7 +72,7 @@ namespace Bomberman.Api
         /// </summary>
         public Point ShiftDown(int delta = 1)
         {
-            return new Point(X, Y - delta);
+            return new Point(X, Y + delta);
             
         }
 
@@ -94,6 +94,33 @@ namespace Bomberman.Api
                 default:
                     throw new NotImplementedException($"Move '{direction}' not recognized");
             }
+        }
+
+        public Move GetShiftDirectionTo(Point newPoint)
+        {
+            if (newPoint == this)
+            {
+                return Move.Stop;
+            }
+
+            if (newPoint.Y < Y)
+            {
+                return Move.Up;
+            }
+            if (newPoint.Y > Y)
+            {
+                return Move.Down;
+            }
+            if (newPoint.X < X)
+            {
+                return Move.Left;
+            }
+            if (newPoint.X > X)
+            {
+                return Move.Right;
+            }
+
+            throw new NotImplementedException();
         }
 
         public static bool operator ==(Point p1, Point p2)
@@ -129,7 +156,7 @@ namespace Bomberman.Api
 
         public override int GetHashCode()
         {
-            return (X.GetHashCode() ^ Y.GetHashCode());
+            return Y.GetHashCode() * 100 + X.GetHashCode();
         }
     }
 }
