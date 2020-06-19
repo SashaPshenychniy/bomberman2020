@@ -1,0 +1,6 @@
+
+src/.vs/
+*.cache
+**/bin/
+**/obj/
+src/packages/
