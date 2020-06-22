@@ -27,7 +27,72 @@ namespace Bomberman.Api
         Right,
         Up,
         Down,
-        Act,  // drop bomb
-        Stop  // do nothing
+        Stop,  // do nothing
+        Act    // drop bomb
     }
+
+    public static class MoveExtensions
+    {
+        public static bool IsVertical(this Move m)
+        {
+            return m == Move.Up || m == Move.Down;
+        }
+
+        public static bool IsHorizontal(this Move m)
+        {
+            return m == Move.Left || m == Move.Right;
+        }
+
+        public static Move Reverse(this Move m)
+        {
+            switch (m)
+            {
+                case Move.Left:
+                    return Move.Right;
+                case Move.Right:
+                    return Move.Left;
+                case Move.Up:
+                    return Move.Down;
+                case Move.Down:
+                    return Move.Up;
+                default:
+                    return m;
+            }
+        }
+
+        public static Move TurnLeft(this Move m)
+        {
+            switch (m)
+            {
+                case Move.Left:
+                    return Move.Down;
+                case Move.Down:
+                    return Move.Right;
+                case Move.Right:
+                    return Move.Up;
+                case Move.Up:
+                    return Move.Left;
+                default:
+                    return m;
+            }
+        }
+
+        public static Move TurnRight(this Move m)
+        {
+            switch (m)
+            {
+                case Move.Left:
+                    return Move.Up;
+                case Move.Up:
+                    return Move.Right;
+                case Move.Right:
+                    return Move.Down;
+                case Move.Down:
+                    return Move.Left;
+                default:
+                    return m;
+            }
+        }
+    }
+
 }

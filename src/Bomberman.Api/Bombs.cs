@@ -6,8 +6,8 @@ namespace Bomberman.Api
     public class Bombs
     {
         public List<BombState> My { get; } = new List<BombState>();
-        public List<BombState> Other { get; } = new List<BombState>();
-        public IEnumerable<BombState> All => My.Concat(Other).ToArray();
+        public List<BombState> Enemy { get; } = new List<BombState>();
+        public IEnumerable<BombState> All => My.Concat(Enemy).ToArray();
 
         public void TrackMy(BombState b)
         {
@@ -16,13 +16,19 @@ namespace Bomberman.Api
 
         public void TrackOther(BombState b)
         {
-            Other.Add(b);
+            Enemy.Add(b);
         }
 
         public void RemoveAt(Point location)
         {
             My.RemoveAll(b => b.Location == location);
-            Other.RemoveAll(b => b.Location == location);
+            Enemy.RemoveAll(b => b.Location == location);
+        }
+
+        public void Clear()
+        {
+            My.Clear();
+            Enemy.Clear();
         }
     }
 }

@@ -45,7 +45,7 @@ namespace Bomberman.Api
         /// <summary>
         /// This is other players alive Bomberman
         /// </summary>
-        OTHER_BOMBERMAN = (short)'♥',
+        OTHER_BOMBERMAN = (short)'♥', // TODO: Clarify '♥'symbol not used
 
         /// <summary>
         /// This is other players Bomberman -  just set the bomb

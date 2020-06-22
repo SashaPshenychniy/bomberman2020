@@ -3,20 +3,25 @@
     public class PerkState
     {
         public Point Location { get; }
-        public Element Perk { get; }
+        public Element PerkType { get; }
         public int ExpiresIn { get; private set; }
         public bool IsExpired => ExpiresIn <= 0;
 
         public PerkState(Point location, Element perk)
         {
             Location = location;
-            Perk = perk;
+            PerkType = perk;
             ExpiresIn = Settings.PerkExpirationTime;
         }
 
         public void ProcessTurn()
         {
             ExpiresIn--;
+        }
+
+        public override string ToString()
+        {
+            return $"{Location} {(char) PerkType} exp={ExpiresIn}";
         }
     }
 }

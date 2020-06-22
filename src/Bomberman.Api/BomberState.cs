@@ -2,51 +2,99 @@
 {
     public class BomberState
     {
-        public const int INF_TIME = 1000;
+        public const int INF_TIME = 999;
 
         public Point Location { get; set; }
 
+        public Move LastDirection { get; private set; }
+
+        public int KeepDirectionTurns { get; private set; }
+
+        public bool IsLongStanding => KeepDirectionTurns >= Config.LongStandingTurnsThreshold;
+        
         public int BombRadius { get; set; }
         public int BombRadiusExpirationTime { get; set; } = INF_TIME;
         public int BombCount { get; set; }
         public int BombCountPerksExpirationTime { get; set; } = INF_TIME;
         public bool HasBombImmunePerk { get; set; }
         public int BombImmunePerkExpirationTime { get; set; } = INF_TIME;
-        public int RemoteControlBombsCount { get; set; }
-        public int BombRemoteControlPerksExpirationTime { get; set; } = INF_TIME;
+        public int DetonatorsCount { get; set; }
 
-        public void ProcessNewLocation(Point newLocation, Element newLocationElement, int currentTime)
+        public BomberState(Point initialLocation)
         {
+            Location = initialLocation;
+
+            LastDirection = Move.Stop;
+            KeepDirectionTurns = 1;
+
+            BombRadius = Settings.BombRadiusDefault;
+            BombCount = Settings.BombsCountDefault;
+            DetonatorsCount = 0;
+            HasBombImmunePerk = false;
+        }
+
+        public void ProcessNewLocation(Point newLocation, Element newLocationPerk, int currentTime)
+        {
+            var direction = Location.GetShiftDirectionTo(newLocation);
+            if (direction == LastDirection)
+            {
+                KeepDirectionTurns++;
+            }
+            else
+            {
+                KeepDirectionTurns = 1;
+            }
+
+            LastDirection = direction;
             Location = newLocation;
 
-            TakePerks(newLocationElement, currentTime);
+            TakePerks(newLocationPerk, currentTime);
             ExpirePerks(currentTime);
+        }
+
+        public void ProcessBombPlaced(Point bombLocation, int currentTime)
+        {
+            //if (AvailableRemoteBombsCount > 0)
+            //{
+            //    AvailableRemoteBombsCount--;
+            //}
+            //else
+            //{
+            //    if (AvailableTimerBombsCount > 0)
+            //    {
+            //        AvailableTimerBombsCount--;
+            //    }
+            //}
+        }
+
+        public void ProcessTimerBombDetonated(Point bombLocation)
+        {
+            //AvailableTimerBombsCount++;
+        }
+
+        public void ProcessRemoteBombDetonated(Point bombLocation)
+        {
+            //AvailableRemoteBombsCount++;
         }
 
         private void ExpirePerks(int currentTime)
         {
-            if (currentTime >= BombRadiusExpirationTime)
+            if (currentTime > BombRadiusExpirationTime)
             {
-                BombRadius -= Settings.BombRadiusPerkEffect;
+                BombRadius = Settings.BombRadiusDefault;
                 BombRadiusExpirationTime = INF_TIME;
             }
 
-            if (currentTime >= BombCountPerksExpirationTime)
+            if (currentTime > BombCountPerksExpirationTime)
             {
-                BombCount -= Settings.BombCountPerkEffect;
+                BombCount = Settings.BombsCountDefault;
                 BombCountPerksExpirationTime = INF_TIME;
             }
 
-            if (currentTime >= BombImmunePerkExpirationTime)
+            if (currentTime > BombImmunePerkExpirationTime)
             {
                 HasBombImmunePerk = false;
                 BombImmunePerkExpirationTime = INF_TIME;
-            }
-
-            if (currentTime >= BombRemoteControlPerksExpirationTime)
-            {
-                RemoteControlBombsCount -= Settings.BombRemoteControlPerkEffect;
-                BombRemoteControlPerksExpirationTime = INF_TIME;
             }
         }
 
@@ -61,25 +109,23 @@
                         Settings.BombRadiusPerkDuration;
                     break;
                 case Element.BOMB_COUNT_INCREASE:
-                    BombCount += Settings.BombCountPerkEffect;
-                    BombCountPerksExpirationTime =
-                        (BombCountPerksExpirationTime == INF_TIME ? currentTime : BombCountPerksExpirationTime) +
-                        Settings.BombCountPerkDuration;
+                    BombCount = Settings.BombsCountDefault + Settings.BombCountPerkEffect;
+                    BombCountPerksExpirationTime = currentTime + Settings.BombCountPerkDuration;
                     break;
                 case Element.BOMB_IMMUNE:
                     HasBombImmunePerk = true;
-                    BombImmunePerkExpirationTime =
-                        (BombImmunePerkExpirationTime == INF_TIME ? currentTime : BombImmunePerkExpirationTime) +
-                        Settings.BombImmunePerkDuration;
+                    BombImmunePerkExpirationTime = currentTime + Settings.BombImmunePerkDuration;
                     break;
                 case Element.BOMB_REMOTE_CONTROL:
-                    RemoteControlBombsCount += Settings.BombRemoteControlPerkEffect;
-                    BombRemoteControlPerksExpirationTime =
-                        (BombRemoteControlPerksExpirationTime == INF_TIME
-                            ? currentTime
-                            : BombRemoteControlPerksExpirationTime) + Settings.BombRemoteControlPerkDuration;
+                    DetonatorsCount = Settings.BombRemoteControlDetonatorsCount;
                     break;
             }
+        }
+
+        public override string ToString()
+        {
+            //return $"Loc at {Location} {LastDirection}; Available Bombs: T={AvailableTimerBombsCount}, RC={AvailableRemoteBombsCount}; Perks: BombCount={BombCount}|{BombCountPerksExpirationTime}, BlastRadius={BombRadius}|{BombRadiusExpirationTime}, RC={DetonatorsCount}|{BombRemoteControlPerksExpirationTime}, Immune={HasBombImmunePerk}|{BombImmunePerkExpirationTime}";
+            return $"Loc at {Location} {LastDirection}; BombCount={BombCount}|{BombCountPerksExpirationTime}, BlastRadius={BombRadius}|{BombRadiusExpirationTime}, RC={DetonatorsCount}, Immune={HasBombImmunePerk}|{BombImmunePerkExpirationTime}";
         }
     }
 }

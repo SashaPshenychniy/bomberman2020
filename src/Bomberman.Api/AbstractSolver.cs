@@ -21,11 +21,11 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Security.Authentication;
 using System.Threading.Tasks;
-using System.Web;
+using log4net;
 using WebSocketSharp;
 
 [assembly: InternalsVisibleTo("Bomberman.Api.Tests")]
@@ -44,6 +44,8 @@ namespace Bomberman.Api
         private int _retriesCount;
 
         private bool _shouldExit;
+
+        protected static readonly ILog Log = LogManager.GetLogger("MainLogger");
 
         private WebSocket _gameServer;
 
@@ -105,6 +107,8 @@ namespace Bomberman.Api
                             .Replace("?code=", "&code=");
         }
 
+        private Stopwatch _stopwatch = new Stopwatch();
+
         private void Socket_OnMessage(object sender, MessageEventArgs e)
         {
             if (!_shouldExit)
@@ -119,17 +123,24 @@ namespace Bomberman.Api
                 }
                 else
                 {
+                    _stopwatch.Restart();
+
                     var boardString = response.Substring(_responsePrefix.Length);
                     var board = new Board(boardString);
 
                     //Just print current state (gameBoard) to console
+#if DEBUG
                     Console.Clear();
                     Console.SetCursorPosition(0, 0);
                     Console.WriteLine(board.ToString());
+#endif
+
+                    Log.Info($"AbstractSolver init move time: {_stopwatch.ElapsedMilliseconds:F0}ms");
 
                     var action = Get(board);
 
-                    Console.WriteLine("Answer: " + action);
+                    Log.Info($"ACTION: {action.PadRight(10)}");
+                    Log.Info($"RESPONSE TIME: {_stopwatch.ElapsedMilliseconds,5:D}ms");
                     Console.SetCursorPosition(0, 0);
 
                     ((WebSocket)sender).Send(action);

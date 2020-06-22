@@ -16,5 +16,10 @@
             LastDirection = Location.GetShiftDirectionTo(newLocation);
             Location = newLocation;
         }
+
+        public override string ToString()
+        {
+            return $"{Location} {LastDirection.ToString()}";
+        }
     }
 }

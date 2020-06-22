@@ -1,4 +1,4 @@
-/*-
+﻿/*-
  * #%L
  * Codenjoy - it's a dojo-like platform from developers to developers.
  * %%
@@ -22,6 +22,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace Bomberman.Api
 {
@@ -84,6 +85,15 @@ namespace Bomberman.Api
             return _neighbouringLocations[location.Y, location.X];
         }
 
+        public IEnumerable<Point> GetNeighbouringLocationsAndSource(Point location)
+        {
+            yield return location;
+            foreach (var neighbouringLocation in GetNeighbouringLocations(location))
+            {
+                yield return neighbouringLocation;
+            }
+        }
+
         public Point GetBomberman()
         {
             return Get(Element.BOMBERMAN)
@@ -92,11 +102,17 @@ namespace Bomberman.Api
                     .Single();
         }
 
+        private static Element[] OtherBombermans = {Element.OTHER_BOMBERMAN, Element.OTHER_BOMB_BOMBERMAN, Element.OTHER_DEAD_BOMBERMAN};
+
         public List<Point> GetOtherBombermans()
+        {
+            return GetAll(OtherBombermans);
+        }
+
+        public List<Point> GetOtherAliveBombermans()
         {
             return Get(Element.OTHER_BOMBERMAN)
                 .Concat(Get(Element.OTHER_BOMB_BOMBERMAN))
-                .Concat(Get(Element.OTHER_DEAD_BOMBERMAN))
                 .ToList();
         }
 
@@ -156,7 +172,7 @@ namespace Bomberman.Api
                     "Blasts: {6}\n" +
                     "Expected blasts at: {7}\n" +
                     "Perks at: {8}",
-                    BoardAsString(),
+                    BoardAsString().Replace((char)Element.BOMBERMAN, 'B'),
                     GetBomberman(),
                     ListToString(GetOtherBombermans()),
                     ListToString(GetMeatChoppers()),
@@ -183,6 +199,8 @@ namespace Bomberman.Api
                 .ToList();
         }
 
+        private static Element[] PotentialMeatchoppers = new Element[] { Element.MEAT_CHOPPER, Element.DeadMeatChopper, Element.DestroyedWall };
+
         public List<Point> GetMeatChoppers()
         {
             return Get(Element.MEAT_CHOPPER);
@@ -191,6 +209,25 @@ namespace Bomberman.Api
         public List<Point> Get(Element element)
         {
             return Locations.Where(l => IsAt(l, element)).ToList();
+
+            //List<Point> result = new List<Point>();
+
+            //for (int i = 0; i < Size * Size; i++)
+            //{
+            //    Point pt = LengthXY.GetXY(i);
+
+            //    if (IsAt(pt, element))
+            //    {
+            //        result.Add(pt);
+            //    }
+            //}
+
+            //return result;
+        }
+
+        public List<Point> GetAll(params Element[] elements)
+        {
+            return Locations.Where(l => IsAnyOfAt(l, elements)).ToList();
 
             //List<Point> result = new List<Point>();
 
@@ -233,6 +270,19 @@ namespace Bomberman.Api
         public bool IsBombAt(Point location)
         {
             return IsAnyOfAt(location, BombIndicators);
+        }
+
+        private static Element[] PerkIndicators = new[]
+        {
+            Element.BOMB_COUNT_INCREASE,
+            Element.BOMB_BLAST_RADIUS_INCREASE,
+            Element.BOMB_REMOTE_CONTROL,
+            Element.BOMB_IMMUNE
+        };
+
+        public bool IsPerkAt(Point location)
+        {
+            return IsAnyOfAt(location, PerkIndicators);
         }
 
         public bool CanBombBeAt(Point location)
@@ -284,7 +334,7 @@ namespace Bomberman.Api
 
         public bool IsAnyOfAt(Point point, params Element[] elements)
         {
-            return elements.Any(elem => IsAt(point, elem));
+            return elements.Contains(GetAt(point));
         }
 
         public bool IsNear(Point point, Element element)
@@ -298,9 +348,16 @@ namespace Bomberman.Api
                    IsAt(point.ShiftDown(), element);
         }
 
+        private static Element[] Barriers = new[] {Element.WALL, Element.DESTROYABLE_WALL}
+            .Concat(BombIndicators)
+            .Concat(PotentialMeatchoppers)
+            .Concat(OtherBombermans)
+            .ToArray();
+
         public bool IsBarrierAt(Point point)
         {
-            return GetBarrier().Contains(point);
+            return IsAnyOfAt(point, Barriers);
+            //return GetBarrier().Contains(point);
         }
 
         public int CountNear(Point point, Element element)
@@ -314,6 +371,23 @@ namespace Bomberman.Api
             if (IsAt(point.ShiftUp(),    element)) count++;
             if (IsAt(point.ShiftDown(), element)) count++;
             return count;
+        }
+
+        private static Element[] BlastStoppers = new[] {Element.WALL, Element.DESTROYABLE_WALL};
+
+        public bool IsBlastStopperAt(Point point)
+        {
+            return IsAnyOfAt(point, BlastStoppers);
+        }
+
+        public bool IsDestroyableBlastStopperAt(Point point)
+        {
+            return IsAt(point, Element.DESTROYABLE_WALL);
+        }
+
+        public bool IsNonDestroyableBlastStopperAt(Point point)
+        {
+            return IsAt(point, Element.WALL);
         }
     }
 }

@@ -38,6 +38,9 @@
     <StartupObject />
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="log4net, Version=2.0.8.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
+      <HintPath>..\packages\log4net.2.0.8\lib\net45-full\log4net.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Web" />
     <Reference Include="System.Core" />
@@ -54,9 +57,13 @@
     <Compile Include="BomberState.cs" />
     <Compile Include="Bombs.cs" />
     <Compile Include="BombState.cs" />
+    <Compile Include="Config.cs" />
     <Compile Include="Element.cs" />
+    <Compile Include="Extensions.cs" />
+    <Compile Include="Field.cs" />
     <Compile Include="LengthToXY.cs" />
     <Compile Include="MeatchoperState.cs" />
+    <Compile Include="MoveProbability.cs" />
     <Compile Include="PerkState.cs" />
     <Compile Include="Point.cs" />
     <Compile Include="Move.cs" />
@@ -67,6 +74,10 @@
     <Compile Include="MySolver.cs" />
     <Compile Include="MyBaseSolver.cs" />
     <Compile Include="Settings.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

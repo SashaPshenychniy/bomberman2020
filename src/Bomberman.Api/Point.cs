@@ -20,6 +20,7 @@
  * #L%
  */
 using System;
+using System.Collections.Generic;
 
 namespace Bomberman.Api
 {
@@ -141,7 +142,7 @@ namespace Bomberman.Api
 
         public override string ToString()
         {
-            return String.Format("[{0},{1}]", X, Y);
+            return String.Format("[{0},{1}]", Y, X);
         }
 
         public override bool Equals(object obj)
@@ -157,6 +158,21 @@ namespace Bomberman.Api
         public override int GetHashCode()
         {
             return Y.GetHashCode() * 100 + X.GetHashCode();
+        }
+    }
+
+    public class PointEqualityComparer : IEqualityComparer<Point>
+    {
+        public static PointEqualityComparer Instance { get; } = new PointEqualityComparer();
+
+        public bool Equals(Point x, Point y)
+        {
+            return x == y;
+        }
+
+        public int GetHashCode(Point obj)
+        {
+            return obj.GetHashCode();
         }
     }
 }

@@ -4,3 +4,5 @@ src/.vs/
 **/bin/
 **/obj/
 src/packages/
+~$Rules.docx
+output.txt

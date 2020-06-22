@@ -1,4 +1,6 @@
-﻿namespace Bomberman.Api
+﻿using System.Collections.Generic;
+
+namespace Bomberman.Api
 {
     public class BombState
     {
@@ -7,11 +9,16 @@
         public int? Timer { get; private set; }
         public bool IsRemoteControlled => !Timer.HasValue;
 
-        public BombState(Point location, BomberState whoPlaced)
+        private readonly BomberState _whoPlaced;
+
+        public BombState(Point location, BomberState whoPlaced, int currentTime)
         {
+            _whoPlaced = whoPlaced;
             Location = location;
             Radius = whoPlaced.BombRadius;
-            Timer = whoPlaced.RemoteControlBombsCount > 0 ? (int?)null : Settings.BombTimer;
+            Timer = whoPlaced.DetonatorsCount > 0 ? (int?)null : Settings.BombTimer;
+            
+            whoPlaced.ProcessBombPlaced(location, currentTime);
         }
 
         public void ProcessTurn(Element newState)
@@ -44,6 +51,18 @@
             }
         }
 
+        public void NotifyDetonated()
+        {
+            if (IsRemoteControlled)
+            {
+                _whoPlaced.ProcessRemoteBombDetonated(Location);
+            }
+            else
+            {
+                _whoPlaced.ProcessTimerBombDetonated(Location);
+            }
+        }
+
         private int? GetTimerFromState(Element newState)
         {
             switch (newState)
@@ -61,6 +80,16 @@
                 default: 
                     return null;
             }
+        }
+
+        //public IEnumerable<Point> GetBlastLocations(Board b)
+        //{
+
+        //}
+
+        public override string ToString()
+        {
+            return $"{Location} {(Timer.HasValue ? "T" + Timer : "RC")} *{Radius}";
         }
     }
 }
