@@ -15,12 +15,15 @@ namespace Bomberman.Api
         public const double ZombieAppearingFromPerkDestroyChance = 1.0;
         private const double DeathFromZombieChance = 0.7; // TODO: Reduce when implement fight with zombie
 
+        public const double BombBlastMaxProbabilityToConsiderPassable = 0.25;
+        public const double TempObjectDisapperMinProbabilityToConsiderPassable = 0.9;
+
         public const double SkipTurnExpectedLoss = 0.5;
         public const double LongStandingTurnsThreshold = 3;
 
         public const int PredictMovesCount =
 #if DEBUG
-        5;
+        7;
 #else
         20;
 #endif

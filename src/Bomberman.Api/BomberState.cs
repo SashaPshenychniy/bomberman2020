@@ -1,4 +1,6 @@
-﻿namespace Bomberman.Api
+﻿using System;
+
+namespace Bomberman.Api
 {
     public class BomberState
     {
@@ -17,7 +19,8 @@
         public int BombCount { get; set; }
         public int BombCountPerksExpirationTime { get; set; } = INF_TIME;
         public bool HasBombImmunePerk { get; set; }
-        public int BombImmunePerkExpirationTime { get; set; } = INF_TIME;
+        public int BombImmunePerkExpirationTime { get; set; } = 0;
+        public int WhenImmuneExpires(int currentTime) => Math.Max(0, BombImmunePerkExpirationTime - currentTime);
         public int DetonatorsCount { get; set; }
 
         public BomberState(Point initialLocation)
@@ -94,7 +97,6 @@
             if (currentTime > BombImmunePerkExpirationTime)
             {
                 HasBombImmunePerk = false;
-                BombImmunePerkExpirationTime = INF_TIME;
             }
         }
 
