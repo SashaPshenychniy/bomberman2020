@@ -40,13 +40,24 @@ namespace Bomberman.Api
             }
         }
 
+        public void AddWithAggregator(Field f, Func<double, double, double> aggregator)
+        {
+            for (int r = 0; r < RowsCount; r++)
+            {
+                for (int c = 0; c < ColumnsCount; c++)
+                {
+                    Values[r, c] = aggregator(Values[r, c], f.Values[r, c]);
+                }
+            }
+        }
+
         public override string ToString()
         {
             var sb = new StringBuilder();
             sb.Append("   ");
             for (int c = 0; c < ColumnsCount; c++)
             {
-                sb.Append($"{c,6:D}");
+                sb.Append($"{c,7:D}");
             }
 
             sb.AppendLine();
@@ -56,7 +67,7 @@ namespace Bomberman.Api
                 sb.Append($"{r,2}: ");
                 for (int c = 0; c < ColumnsCount; c++)
                 {
-                    sb.Append($"{Values[r, c],5:###.00}");
+                    sb.Append($"{Values[r, c],6:###.00}");
                     sb.Append(" ");
                 }
 
@@ -105,6 +116,14 @@ namespace Bomberman.Api
             for (int t = 0; t < Turn.Length; t++)
             {
                 Turn[t].AddWithMultiplier(f.Turn[t], multiplier);
+            }
+        }
+
+        public void AddWithAggregator(PredictionField f, Func<double, double, double> aggregator)
+        {
+            for (int t = 0; t < Turn.Length; t++)
+            {
+                Turn[t].AddWithAggregator(f.Turn[t], aggregator);
             }
         }
 

@@ -25,6 +25,9 @@ Global
 		Release|Any CPU = Release|Any CPU
 		Release|Mixed Platforms = Release|Mixed Platforms
 		Release|x86 = Release|x86
+		Test|Any CPU = Test|Any CPU
+		Test|Mixed Platforms = Test|Mixed Platforms
+		Test|x86 = Test|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{26B1AE94-CB40-411A-8A64-84285E395780}.Debug_Ubuntu|Any CPU.ActiveCfg = Debug|Any CPU
@@ -49,6 +52,12 @@ Global
 		{26B1AE94-CB40-411A-8A64-84285E395780}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{26B1AE94-CB40-411A-8A64-84285E395780}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{26B1AE94-CB40-411A-8A64-84285E395780}.Release|x86.ActiveCfg = Release|Any CPU
+		{26B1AE94-CB40-411A-8A64-84285E395780}.Test|Any CPU.ActiveCfg = Test|Any CPU
+		{26B1AE94-CB40-411A-8A64-84285E395780}.Test|Any CPU.Build.0 = Test|Any CPU
+		{26B1AE94-CB40-411A-8A64-84285E395780}.Test|Mixed Platforms.ActiveCfg = Test|Any CPU
+		{26B1AE94-CB40-411A-8A64-84285E395780}.Test|Mixed Platforms.Build.0 = Test|Any CPU
+		{26B1AE94-CB40-411A-8A64-84285E395780}.Test|x86.ActiveCfg = Test|Any CPU
+		{26B1AE94-CB40-411A-8A64-84285E395780}.Test|x86.Build.0 = Test|Any CPU
 		{1527129C-C326-49E6-B53F-9E662BAF81FB}.Debug_Ubuntu|Any CPU.ActiveCfg = Release|x86
 		{1527129C-C326-49E6-B53F-9E662BAF81FB}.Debug_Ubuntu|Any CPU.Build.0 = Release|x86
 		{1527129C-C326-49E6-B53F-9E662BAF81FB}.Debug_Ubuntu|Mixed Platforms.ActiveCfg = Debug|x86
@@ -72,6 +81,11 @@ Global
 		{1527129C-C326-49E6-B53F-9E662BAF81FB}.Release|Mixed Platforms.Build.0 = Release|x86
 		{1527129C-C326-49E6-B53F-9E662BAF81FB}.Release|x86.ActiveCfg = Release|x86
 		{1527129C-C326-49E6-B53F-9E662BAF81FB}.Release|x86.Build.0 = Release|x86
+		{1527129C-C326-49E6-B53F-9E662BAF81FB}.Test|Any CPU.ActiveCfg = Test|x86
+		{1527129C-C326-49E6-B53F-9E662BAF81FB}.Test|Any CPU.Build.0 = Test|x86
+		{1527129C-C326-49E6-B53F-9E662BAF81FB}.Test|Mixed Platforms.ActiveCfg = Test|x86
+		{1527129C-C326-49E6-B53F-9E662BAF81FB}.Test|Mixed Platforms.Build.0 = Test|x86
+		{1527129C-C326-49E6-B53F-9E662BAF81FB}.Test|x86.ActiveCfg = Test|x86
 		{02C7ECA6-7D22-458A-B670-C5BA23176289}.Debug_Ubuntu|Any CPU.ActiveCfg = Debug|Any CPU
 		{02C7ECA6-7D22-458A-B670-C5BA23176289}.Debug_Ubuntu|Any CPU.Build.0 = Debug|Any CPU
 		{02C7ECA6-7D22-458A-B670-C5BA23176289}.Debug_Ubuntu|Mixed Platforms.ActiveCfg = Debug|Any CPU
@@ -96,6 +110,12 @@ Global
 		{02C7ECA6-7D22-458A-B670-C5BA23176289}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{02C7ECA6-7D22-458A-B670-C5BA23176289}.Release|x86.ActiveCfg = Release|Any CPU
 		{02C7ECA6-7D22-458A-B670-C5BA23176289}.Release|x86.Build.0 = Release|Any CPU
+		{02C7ECA6-7D22-458A-B670-C5BA23176289}.Test|Any CPU.ActiveCfg = Test|Any CPU
+		{02C7ECA6-7D22-458A-B670-C5BA23176289}.Test|Any CPU.Build.0 = Test|Any CPU
+		{02C7ECA6-7D22-458A-B670-C5BA23176289}.Test|Mixed Platforms.ActiveCfg = Test|Any CPU
+		{02C7ECA6-7D22-458A-B670-C5BA23176289}.Test|Mixed Platforms.Build.0 = Test|Any CPU
+		{02C7ECA6-7D22-458A-B670-C5BA23176289}.Test|x86.ActiveCfg = Test|Any CPU
+		{02C7ECA6-7D22-458A-B670-C5BA23176289}.Test|x86.Build.0 = Test|Any CPU
 		{3E222C57-56F3-4259-A01C-BF5C144670D6}.Debug_Ubuntu|Any CPU.ActiveCfg = Debug|Any CPU
 		{3E222C57-56F3-4259-A01C-BF5C144670D6}.Debug_Ubuntu|Any CPU.Build.0 = Debug|Any CPU
 		{3E222C57-56F3-4259-A01C-BF5C144670D6}.Debug_Ubuntu|Mixed Platforms.ActiveCfg = Debug|Any CPU
@@ -120,6 +140,12 @@ Global
 		{3E222C57-56F3-4259-A01C-BF5C144670D6}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{3E222C57-56F3-4259-A01C-BF5C144670D6}.Release|x86.ActiveCfg = Release|Any CPU
 		{3E222C57-56F3-4259-A01C-BF5C144670D6}.Release|x86.Build.0 = Release|Any CPU
+		{3E222C57-56F3-4259-A01C-BF5C144670D6}.Test|Any CPU.ActiveCfg = Test|Any CPU
+		{3E222C57-56F3-4259-A01C-BF5C144670D6}.Test|Any CPU.Build.0 = Test|Any CPU
+		{3E222C57-56F3-4259-A01C-BF5C144670D6}.Test|Mixed Platforms.ActiveCfg = Test|Any CPU
+		{3E222C57-56F3-4259-A01C-BF5C144670D6}.Test|Mixed Platforms.Build.0 = Test|Any CPU
+		{3E222C57-56F3-4259-A01C-BF5C144670D6}.Test|x86.ActiveCfg = Test|Any CPU
+		{3E222C57-56F3-4259-A01C-BF5C144670D6}.Test|x86.Build.0 = Test|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

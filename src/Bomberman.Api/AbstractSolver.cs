@@ -126,26 +126,38 @@ namespace Bomberman.Api
                     _stopwatch.Restart();
 
                     var boardString = response.Substring(_responsePrefix.Length);
-                    var board = new Board(boardString);
 
                     //Just print current state (gameBoard) to console
-#if DEBUG
-                    Console.Clear();
-                    Console.SetCursorPosition(0, 0);
-                    Console.WriteLine(board.ToString());
-#endif
-
-                    Log.Info($"AbstractSolver init move time: {_stopwatch.ElapsedMilliseconds:F0}ms");
-
-                    var action = Get(board);
-
-                    Log.Info($"ACTION: {action.PadRight(10)}");
-                    Log.Info($"RESPONSE TIME: {_stopwatch.ElapsedMilliseconds,5:D}ms");
-                    Console.SetCursorPosition(0, 0);
+                    var action = GetAction(boardString);
 
                     ((WebSocket)sender).Send(action);
                 }
             }
+        }
+
+        public string GetAction(string boardString)
+        {
+            var board = new Board(boardString);
+#if DEBUG
+#if !TEST
+            Console.Clear();
+            Console.SetCursorPosition(0, 0);
+            Console.WriteLine(board.ToString());
+#endif
+#endif
+
+            Log.Info($"AbstractSolver init move time: {_stopwatch.ElapsedMilliseconds:F0}ms");
+
+            var action = Get(board);
+
+            Log.Info($"ACTION: {action.PadRight(10)}");
+            Log.Info($"RESPONSE TIME: {_stopwatch.ElapsedMilliseconds,5:D}ms");
+
+#if !TEST
+            Console.SetCursorPosition(0, 0);
+#endif
+
+            return action;
         }
 
         private async Task ReconnectAsync(bool wasClean, ushort code)

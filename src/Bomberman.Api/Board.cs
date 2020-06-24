@@ -172,7 +172,7 @@ namespace Bomberman.Api
                     "Blasts: {6}\n" +
                     "Expected blasts at: {7}\n" +
                     "Perks at: {8}",
-                    BoardAsString().Replace((char)Element.BOMBERMAN, 'B'),
+                    BoardAsString(),
                     GetBomberman(),
                     ListToString(GetOtherBombermans()),
                     ListToString(GetMeatChoppers()),
@@ -358,6 +358,13 @@ namespace Bomberman.Api
         {
             return IsAnyOfAt(point, Barriers);
             //return GetBarrier().Contains(point);
+        }
+
+        private static Element[] OtherUnits = OtherBombermans.Concat(PotentialMeatchoppers).ToArray();
+
+        public bool IsOtherUnitAt(Point point)
+        {
+            return IsAnyOfAt(point, OtherUnits);
         }
 
         public int CountNear(Point point, Element element)

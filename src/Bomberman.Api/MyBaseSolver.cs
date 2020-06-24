@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Web.UI;
 
 namespace Bomberman.Api
 {
@@ -96,6 +97,26 @@ namespace Bomberman.Api
             Enemies.AddRange(Board.GetAll(Element.OTHER_BOMBERMAN, Element.OTHER_BOMB_BOMBERMAN).Select(b => new BomberState(b)));
 
             Bombs.Clear();
+#if TEST
+            var allBombLocations = Board.GetBombs();
+            var bombOwnerMap = allBombLocations.Select(bl =>
+            {
+                var closestBomber = Enemies.Concat(Enumerable.Repeat(Me, 1)).OrderBy(b => Math.Abs(b.Location.Y - bl.Y) + Math.Abs(b.Location.X - bl.X)).First();
+                return (new BombState(bl, Board.GetAt(bl), closestBomber, Time), closestBomber);
+            }).ToArray();
+
+            foreach (var (b, owner) in bombOwnerMap)
+            {
+                if (owner == Me)
+                {
+                    Bombs.TrackMy(b);
+                }
+                else
+                {
+                    Bombs.TrackOther(b);
+                }
+            }
+#endif
 
             Perks.Clear();
             Perks.AddRange(Board.GetPerks().Select(p => new PerkState(p, Board.GetAt(p))));
@@ -219,16 +240,16 @@ namespace Bomberman.Api
             {
                 if (newBomb.Bomber == Me)
                 {
-                    Bombs.TrackMy(new BombState(newBomb.Bomb, Me, Time));
+                    Bombs.TrackMy(new BombState(newBomb.BombLocation, Board.GetAt(newBomb.BombLocation), Me, Time));
                 }
                 else
                 {
-                    Bombs.TrackOther(new BombState(newBomb.Bomb, newBomb.Bomber, Time));
+                    Bombs.TrackOther(new BombState(newBomb.BombLocation, Board.GetAt(newBomb.BombLocation), newBomb.Bomber, Time));
                 }
             }
         }
 
-        private IEnumerable<(Point Bomb, BomberState Bomber)> WhoPlacedThoseBombs(IEnumerable<Point> newBombLocations, IEnumerable<BomberState> newBomberStates)
+        private IEnumerable<(Point BombLocation, BomberState Bomber)> WhoPlacedThoseBombs(IEnumerable<Point> newBombLocations, IEnumerable<BomberState> newBomberStates)
         {
             var unassignedBombs = newBombLocations.ToList();
             var unassignedBombers = newBomberStates.ToList();

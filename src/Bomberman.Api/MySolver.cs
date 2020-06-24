@@ -18,14 +18,18 @@ namespace Bomberman.Api
         private static PredictionField _pathRisk;
 
         private static PredictionField _chopperLocationProbabilities;
+        private static PredictionField _chopperLocationProbabilitiesTmp;
         private static PredictionField _enemyLocationProbabilities;
+        private static PredictionField _enemyLocationProbabilitiesTmp;
         private static PredictionField _destroyValues;
         private static PredictionField _bombBlastValues;
+        private static PredictionField _bombPlacementValues;
 
         private static PredictionField _takePerkValues;
         private static PredictionField _bombBlastProbabilities;
         private static PredictionField _visitValues;
         private static PredictionField _aggVisitValues;
+        private static double?[,] _pathValues;
 
         private const int PossibleMovesCount = 5; // 4 directions + Stop
         private double[,,,] _movePredictions;
@@ -41,26 +45,66 @@ namespace Bomberman.Api
             FillDestroyObjectValues();
             Log.Debug($"DESTROY VALUES:\n{_destroyValues}");
             FillVisitLocationValues();
-            //Log.Debug($"VISIT VALUES:\n{_visitValues}");
-            FillBombBlastValues();
-            Log.Debug($"BOMB VALUES:\n{_bombBlastValues}");
+            Log.Debug($"VISIT VALUES:\n{_visitValues}");
+            FillBombPlacementValues();
+            Log.Debug($"BOMB BLAST VALUES:\n{_bombBlastValues}");
+            Log.Debug($"BOMB PLACEMENT VALUES:\n{_bombPlacementValues}");
             FillAggregatedVisitLocationValues();
+            Log.Debug($"AGG VISIT VALUES:\n{_aggVisitValues}");
 
             FillDistance();
 
-            //Log.Debug($"Blasts:\n {_bombBlastProbabilities}");
-            //Log.Debug($"Distances:\n{_distance.ToLogStr(x => x.ToString(), 3)}");
+            Log.Debug($"Blasts:\n {_bombBlastProbabilities}");
+            Log.Debug($"Distances:\n{_distance.ToLogStr(x => x.ToString(), 3)}");
 
-            //for (int i = 1; i <= PredictMovesCount; i++)
-            //{
-            //    Log.Debug($"Directions at step {i}:\n{_directions[i].ToLogStr(x => x.ToString().Substring(0, 1), 3)}");
-            //}
+            for (int i = 1; i <= PredictMovesCount; i++)
+            {
+                Log.Debug($"Directions at step {i}:\n{_directions[i].ToLogStr(x => x.ToString().Substring(0, 1), 3)}");
+            }
 
             Log.Info($"Precalc time: {_stopwatch.ElapsedMilliseconds:F0}ms");
 
+            return FindBestMove();
+        }
+
+        private IEnumerable<Move> FindBestMove()
+        {
+            double maxValue = -1000;
+            Move bestMove = Move.Stop;
+            List<Point> bestPath = null;
+
+            //var minMombProb = 1.0;
+            //for (int m = Move.Left; m < Move.Down; m++)
+            //{
+            //    if (_bombBlastProbabilities.Turn[1])
+            //}
+            foreach (var boardLocation in Board.Locations)
+            {
+                if (TryFindShortestSafePathTo(boardLocation, out List<Move> dir, out List<Point> path))
+                {
+                    var locScore = _aggVisitValues.Turn[path.Count].Values[boardLocation.Y, boardLocation.X];
+                    if (locScore > maxValue && dir.Count > 0 && dir.Count <=10)
+                    {
+                        maxValue = locScore;
+                        bestMove = dir[0];
+                        bestPath = path;
+                    }
+                }
+                //_aggVisitValues.Turn[_distance[boardLocation.Y, _bombBlastValues.X]]
+            }
+
+            if (Me.BombCount > 0 && 
+                bestPath!= null && _bombPlacementValues.Turn[1].Values[Me.Location.Y, Me.Location.X] > bestPath.Take(5).Select((p, i) => _bombPlacementValues.Turn[i+1].Values[p.Y, p.X]).Max() - Config.Eplison)
+            {
+                yield return Move.Act;
+            }
+
+            yield return bestMove;
+            yield break;
+
             yield return Move.Act;
             var myPosition = Board.GetBomberman();
-            var direction = (Move) _rand.Next(5);
+            var direction = (Move)_rand.Next(5);
             var newPosition = myPosition.Shift(direction);
             if (Board.IsBarrierAt(newPosition))
             {
@@ -68,6 +112,7 @@ namespace Bomberman.Api
             }
             else yield return direction;
         }
+
 
         private const int INF_DIST = 999;
 
@@ -123,9 +168,18 @@ namespace Bomberman.Api
                     continue;
                 }
 
-                if (Board.IsBombAt(p) && ProbabilityBlastAtBefore(p, d) < Config.TempObjectDisapperMinProbabilityToConsiderPassable)
+                if (Board.IsOtherUnitAt(p) && ProbabilityBlastAtBefore(p, d) < Config.TempObjectDisapperMinProbabilityToConsiderPassable && d < 10 /*Units are likely to move somewhere*/)
                 {
                     continue;
+                }
+
+                if (Board.IsBombAt(p))
+                {
+                    var bomb = Bombs.All.Single(b => b.Location == p);
+                    if (bomb.ProbabilityExplodesBefore(d, Time) < Config.TempObjectDisapperMinProbabilityToConsiderPassable)
+                    {
+                        continue;
+                    }
                 }
 
                 if (d < _distance[p.Y, p.X] + 5)
@@ -158,23 +212,29 @@ namespace Bomberman.Api
             }
         }
 
-        private bool TryFindShortestSafePathTo(Point p, out List<Move> path)
+        private bool TryFindShortestSafePathTo(Point p, out List<Move> directions, out List<Point> path)
         {
             var dist = _distance[p.Y, p.X];
             if (dist == INF_DIST)
             {
+                directions = null;
                 path = null;
                 return false;
             }
-            path = new List<Move>(dist);
+            directions = new List<Move>(dist);
+            path = new List<Point>(dist);
 
             for (var pp = p; dist != 0; dist--)
             {
+                path.Add(pp);
                 var dir = _directions[dist][pp.Y, pp.X];
+                directions.Add(dir);
                 pp = pp.Shift(dir.Reverse());
             }
 
+            directions.Reverse();
             path.Reverse();
+
             return true;
         }
 
@@ -257,11 +317,35 @@ namespace Bomberman.Api
             ResetPredictionField(ref _aggVisitValues);
 
             _aggVisitValues.Add(_visitValues);
-
+            _aggVisitValues.Add(_bombPlacementValues);
+            
             //TODO: add bomb placement values
             //TODO: for each location find if it's safe to put bomb - risk of death
             //TODO: for each destroyValue mark places where bomb would hit that
         }
+
+        //private void FillPathValues()
+        //{
+        //    if (_pathValues == null)
+        //    {
+        //        _pathValues = new double[Board.Size, Board.Size];
+        //    }
+        //    else
+        //    {
+        //        Array.Clear(_pathValues, 0, _pathValues.Length);
+        //    }
+
+        //    foreach (var targetLocation in Board.Locations)
+        //    {
+        //        if (TryFindShortestSafePathTo(targetLocation, out List<Move> directions, out List<Point> locations))
+        //        {
+        //            foreach (var pathLoc in locations)
+        //            {
+        //                _pathValues[targetLocation.Y, targetLocation.Y]+=_takePerkValues[pathLoc.]
+        //            }
+        //        }
+        //    }
+        //}
 
         private void FillBombBlastValues()
         {
@@ -270,27 +354,7 @@ namespace Bomberman.Api
             for (int t = 1; t <= PredictMovesCount; t++)
             {
                 var bombRadius = t >= Me.BombRadiusExpirationTime ? Settings.BombRadiusDefault : Me.BombRadius;
-                //int bombTimer;
-                //bool isRemote;
-                
-                //if (Me.DetonatorsCount > 0)
-                //{
-                //    const int blastUnderImmuneIn = 1;
-                //    if (Me.WhenImmuneExpires(Time) > t + blastUnderImmuneIn)
-                //    {
-                //        bombTimer = blastUnderImmuneIn;
-                //        isRemote = true;
-                //    }
-                //    else
-                //    {
-                //        bombTimer = 3; // TODO: Maybe worth calculating more precisely for each case to find safe spot
-                //    }
-                //}
-                //else
-                //{
-                //    bombTimer = Settings.BombTimer;
-                //}
-
+              
                 foreach (var bombPos in Board.Locations)
                 {
                     if (!Board.IsAnyOfAt(bombPos, Element.WALL, Element.DESTROYABLE_WALL))
@@ -316,6 +380,61 @@ namespace Bomberman.Api
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        private void FillBombPlacementValues()
+        {
+            FillBombBlastValues();
+
+            ResetPredictionField(ref _bombPlacementValues);
+
+            for (int t = 1; t <= PredictMovesCount; t++)
+            {
+                int bombTimer;
+                bool isRemote;
+
+                if (Me.DetonatorsCount > 0)
+                {
+                    isRemote = true;
+
+                    const int blastUnderImmuneInSec = 1;
+                    if (Me.WhenImmuneExpires(Time) > t + blastUnderImmuneInSec)
+                    {
+                        bombTimer = blastUnderImmuneInSec;
+                    }
+                    else
+                    {
+                        bombTimer = 3; // TODO: Maybe worth calculating more precisely for each case to find safe spot
+                    }
+                }
+                else
+                {
+                    bombTimer = Settings.BombTimer;
+                    isRemote = false;
+                }
+
+                if (t + bombTimer > PredictMovesCount)
+                {
+                    break;
+                }
+
+                foreach (var bombPos in Board.Locations)
+                {
+                    if (isRemote)
+                    {
+                        double maxBlastValueOfAllDelays = 0;
+                        for (int bt = t; bt <= PredictMovesCount - bombTimer; bt++)
+                        {
+                            maxBlastValueOfAllDelays = Math.Max(maxBlastValueOfAllDelays, _bombBlastValues.Turn[bt + bombTimer].Values[bombPos.Y, bombPos.X] - (bt - t) * Config.SkipTurnExpectedLoss);
+                        }
+                        _bombPlacementValues.Turn[t].Values[bombPos.Y, bombPos.X] = maxBlastValueOfAllDelays;
+                    }
+                    else
+                    {
+                        _bombPlacementValues.Turn[t].Values[bombPos.Y, bombPos.X] += _bombBlastValues.Turn[t + bombTimer].Values[bombPos.Y, bombPos.X];
                     }
                 }
             }
@@ -359,21 +478,27 @@ namespace Bomberman.Api
 
         private void AddChopperValueMovePredictions(PredictionField f)
         {
+            ResetPredictionField(ref _chopperLocationProbabilities);
+
             foreach (var meatchoper in Chopers)
             {
-                ResetPredictionField(ref _chopperLocationProbabilities);
-                FillMovePredictions(_chopperLocationProbabilities, meatchoper.Location, meatchoper.LastDirection, false, 1.0, Config.ChopperMoveProbability, CanChopperEnterLocation);
-                f.AddWithMultiplier(_chopperLocationProbabilities, GetElementDestructionValue(Board.GetAt(meatchoper.Location)));
+                ResetPredictionField(ref _chopperLocationProbabilitiesTmp);
+                FillMovePredictions(_chopperLocationProbabilitiesTmp, meatchoper.Location, meatchoper.LastDirection, false, 1.0, Config.ChopperMoveProbability, CanChopperEnterLocation);
+                f.AddWithMultiplier(_chopperLocationProbabilitiesTmp, GetElementDestructionValue(Board.GetAt(meatchoper.Location)));
+                _chopperLocationProbabilities.AddWithAggregator(_chopperLocationProbabilitiesTmp, (x, y) => CalcProbabilityAnyOf(x, y));
             }
         }
 
         private void AddEnemyValueMovePredictions(PredictionField f)
         {
+            ResetPredictionField(ref _enemyLocationProbabilities);
+
             foreach (var enemy in Enemies)
             {
-                ResetPredictionField(ref _enemyLocationProbabilities);
-                FillMovePredictions(_enemyLocationProbabilities, enemy.Location, enemy.LastDirection, enemy.IsLongStanding, GetElementDestructionValue(Board.GetAt(enemy.Location)), Config.EnemyMoveProbability, CanBomberEnterLocation);
-                f.AddWithMultiplier(_enemyLocationProbabilities, GetElementDestructionValue(Board.GetAt(enemy.Location)));
+                ResetPredictionField(ref _enemyLocationProbabilitiesTmp);
+                FillMovePredictions(_enemyLocationProbabilitiesTmp, enemy.Location, enemy.LastDirection, enemy.IsLongStanding, 1.0, Config.EnemyMoveProbability, CanBomberEnterLocation);
+                f.AddWithMultiplier(_enemyLocationProbabilitiesTmp, GetElementDestructionValue(Board.GetAt(enemy.Location)));
+                _enemyLocationProbabilities.AddWithAggregator(_enemyLocationProbabilitiesTmp, (x, y) => CalcProbabilityAnyOf(x, y));
             }
         }
 
@@ -415,10 +540,15 @@ namespace Bomberman.Api
                                 bool upAllowed = canEnterLocation(upPos, t + 1);
                                 Point downPos = boardLocation.Shift(Move.Down);
                                 bool downAllowed = canEnterLocation(downPos, t + 1);
+                                bool stopAllowed = probability.Stop > Config.Eplison;
 
-                                var everyDirectionProbability = 1.0 / (leftAllowed.AsInt() + rightAllowed.AsInt() + upAllowed.AsInt() + downAllowed.AsInt() + 1);
-                                
-                                _movePredictions[t + 1, boardLocation.Y, boardLocation.X, (int)Move.Stop] += v * everyDirectionProbability;
+                                var everyDirectionProbability = 1.0 / (leftAllowed.AsInt() + rightAllowed.AsInt() + upAllowed.AsInt() + downAllowed.AsInt() + stopAllowed.AsInt());
+
+                                if (stopAllowed)
+                                {
+                                    _movePredictions[t + 1, boardLocation.Y, boardLocation.X, (int) Move.Stop] += v * everyDirectionProbability;
+                                }
+
                                 if (leftAllowed)
                                 {
                                     _movePredictions[t + 1, leftPos.Y, leftPos.X, (int) Move.Left] += v * everyDirectionProbability;
@@ -447,7 +577,10 @@ namespace Bomberman.Api
                                 _movePredictions[t + 1, boardLocation.Y, boardLocation.X, (int) Move.Stop] += v * normalizedProbabilities.Stop;
 
                                 var keepDirectionNewPos = boardLocation.Shift(lm);
-                                _movePredictions[t + 1, keepDirectionNewPos.Y, keepDirectionNewPos.X, (int) lm] += v * normalizedProbabilities.KeepDirection;
+                                if (keepDirectionAllowed)
+                                {
+                                    _movePredictions[t + 1, keepDirectionNewPos.Y, keepDirectionNewPos.X, (int) lm] += v * normalizedProbabilities.KeepDirection;
+                                }
 
                                 if (turnLeftAllowed)
                                 {
@@ -505,7 +638,7 @@ namespace Bomberman.Api
                 {
                     if (perk.ExpiresIn >= t)
                     {
-                        f.Turn[t].Values[perk.Location.Y, perk.Location.X] -= Config.PerkDestroyFutureExpectedValueLoss;
+                        f.Turn[t].Values[perk.Location.Y, perk.Location.X] += Config.PerkDestroyFutureExpectedValueLoss;
                     }
                 }
             }
@@ -533,7 +666,7 @@ namespace Bomberman.Api
                     .Concat(Bombs.Enemy.Where(b => b.IsRemoteControlled))
                     .Concat(Bombs.My.Where(b => !b.IsRemoteControlled)))
             {
-                if (!bomb.IsRemoteControlled && bomb.Timer.HasValue)
+                if (!bomb.IsRemoteControlled)
                 {
                     AddBlastProbabilityAtTurn(bomb, bomb.Timer.Value, 1.0, _bombBlastProbabilities);
                 }
@@ -541,7 +674,7 @@ namespace Bomberman.Api
                 {
                     for (int t = PredictMovesCount; t >= 1; t--) // Reverse order processing for bomb not to count destroyable walls of itself potentially blasting at earlier moves
                     {
-                        var turnBlastProbability = Config.RemoteBombEnemyDetonationChanceAtTurn(t);
+                        var turnBlastProbability = Config.RemoteBombEnemyDetonationChanceAtTurn((Time - bomb.CreationTime) + t);
                         AddBlastProbabilityAtTurn(bomb, t, turnBlastProbability, _bombBlastProbabilities);
                     }
                 }
@@ -582,22 +715,22 @@ namespace Bomberman.Api
             }
         }
 
-        private double CalcProbabilityAnyOf(params double[] probabilities)
+        public static double CalcProbabilityAnyOf(params double[] probabilities)
         {
             return CalcProbabilityAnyOf((IEnumerable<double>) probabilities);
         }
 
-        private double CalcProbabilityAnyOf(IEnumerable<double> probabilities)
+        public static double CalcProbabilityAnyOf(IEnumerable<double> probabilities)
         {
             return 1 - CalcProbabilityAllOf(probabilities.Select(p => 1.0 - p).ToArray()); // 1.0 - All not happen
         }
 
-        private double CalcProbabilityAllOf(params double[] probabilities)
+        public static double CalcProbabilityAllOf(params double[] probabilities)
         {
             return CalcProbabilityAllOf((IEnumerable<double>)probabilities);
         }
 
-        private double CalcProbabilityAllOf(IEnumerable<double> probabilities)
+        public static double CalcProbabilityAllOf(IEnumerable<double> probabilities)
         {
             return probabilities.Aggregate(1.0, (rp, p) => rp * p);
         }
