@@ -36,6 +36,20 @@ namespace Bomberman.Api
             HasBombImmunePerk = false;
         }
 
+        public BomberState Clone()
+        {
+            return new BomberState(Location)
+            {
+                LastDirection = LastDirection, KeepDirectionTurns = KeepDirectionTurns, BombRadius = BombRadius,
+                BombRadiusExpirationTime = BombRadiusExpirationTime,
+                BombCount = BombCount,
+                BombCountPerksExpirationTime = BombCountPerksExpirationTime,
+                HasBombImmunePerk = HasBombImmunePerk,
+                BombImmunePerkExpirationTime = BombImmunePerkExpirationTime,
+                DetonatorsCount = DetonatorsCount
+            };
+        }
+
         public void ProcessNewLocation(Point newLocation, Element newLocationPerk, int currentTime)
         {
             var direction = Location.GetShiftDirectionTo(newLocation);
@@ -57,27 +71,17 @@ namespace Bomberman.Api
 
         public void ProcessBombPlaced(Point bombLocation, int currentTime)
         {
-            //if (AvailableRemoteBombsCount > 0)
-            //{
-            //    AvailableRemoteBombsCount--;
-            //}
-            //else
-            //{
-            //    if (AvailableTimerBombsCount > 0)
-            //    {
-            //        AvailableTimerBombsCount--;
-            //    }
-            //}
+            BombCount--;
         }
 
         public void ProcessTimerBombDetonated(Point bombLocation)
         {
-            //AvailableTimerBombsCount++;
+            BombCount++;
         }
 
         public void ProcessRemoteBombDetonated(Point bombLocation)
         {
-            //AvailableRemoteBombsCount++;
+            BombCount++;
         }
 
         private void ExpirePerks(int currentTime)

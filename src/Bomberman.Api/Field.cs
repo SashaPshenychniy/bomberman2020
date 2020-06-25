@@ -1,5 +1,6 @@
 ﻿using System;
 using System.CodeDom;
+using System.Linq;
 using System.Text;
 
 namespace Bomberman.Api
@@ -16,6 +17,13 @@ namespace Bomberman.Api
             RowsCount = rowsCount;
             ColumnsCount = columnsCount;
             Values = new double[rowsCount, columnsCount];
+        }
+
+        public Field Clone()
+        {
+            var c = new Field(RowsCount, ColumnsCount);
+            Array.Copy(Values, c.Values, c.Values.Length);
+            return c;
         }
 
         public void Add(Field f)
@@ -82,7 +90,7 @@ namespace Bomberman.Api
     {
         public int FieldRowsCount { get; }
         public int FieldColumnsCount { get; }
-        public Field[] Turn { get; }
+        public Field[] Turn { get; private set; }
 
         public PredictionField(int movesCountToPredict, int fieldRowsCount, int fieldColumnsCount)
         {
@@ -93,6 +101,11 @@ namespace Bomberman.Api
             {
                 Turn[i] = new Field(fieldRowsCount, fieldColumnsCount);
             }
+        }
+
+        public PredictionField Clone()
+        {
+            return new PredictionField(Turn.Length - 1, FieldRowsCount, FieldColumnsCount) {Turn = Turn.Select(t => t.Clone()).ToArray()};
         }
 
         public void Clear()

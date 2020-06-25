@@ -71,6 +71,7 @@
     <Compile Include="Element.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Field.cs" />
+    <Compile Include="GameState.cs" />
     <Compile Include="LengthToXY.cs" />
     <Compile Include="MeatchoperState.cs" />
     <Compile Include="MoveProbability.cs" />

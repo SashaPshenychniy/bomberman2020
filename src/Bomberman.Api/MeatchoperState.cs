@@ -11,6 +11,14 @@
             LastDirection = Move.Stop;
         }
 
+        public MeatchoperState Clone()
+        {
+            return new MeatchoperState(Location)
+            {
+                LastDirection = LastDirection
+            };
+        }
+
         public void SetNewPosition(Point newLocation)
         {
             LastDirection = Location.GetShiftDirectionTo(newLocation);

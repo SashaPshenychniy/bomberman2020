@@ -28,6 +28,8 @@ namespace Bomberman.Api
 {
     public class Board
     {
+        private readonly string _boardString;
+
         //private String BoardString { get; }
         //private LengthToXY LengthXY;
         private string[] _board;
@@ -39,6 +41,7 @@ namespace Bomberman.Api
         
         public Board(string boardString)
         {
+            _boardString = boardString;
             Size = (int)Math.Sqrt(boardString.Length);
             _board = new string[Size];
             for (int i = 0; i < Size; i++)
@@ -65,6 +68,16 @@ namespace Bomberman.Api
 
             //BoardString = boardString.Replace("\n", "");
             //LengthXY = new LengthToXY(Size); 
+        }
+
+        public Board Clone()
+        {
+            return new Board(_boardString);
+        }
+
+        public void Replace(Point at, Element newElement)
+        {
+            _board[at.Y] = _board[at.Y].Substring(0, at.X) + (char) newElement + _board[at.Y].Substring(at.X + 1);
         }
 
         /// <summary>

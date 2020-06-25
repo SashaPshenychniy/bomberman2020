@@ -14,6 +14,14 @@
             ExpiresIn = Settings.PerkExpirationTime;
         }
 
+        public PerkState Clone()
+        {
+            return new PerkState(Location, PerkType)
+            {
+                ExpiresIn = ExpiresIn
+            };
+        }
+
         public void ProcessTurn()
         {
             ExpiresIn--;

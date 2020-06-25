@@ -20,6 +20,7 @@
  * #L%
  */
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Bomberman.Api;
 using log4net;
@@ -31,9 +32,9 @@ namespace Demo
     {
 
         // you can get this code after registration on the server with your email
-        //private static string ServerUrl = "https://botchallenge.cloud.epam.com/codenjoy-contest/board/player/x0sfabkavz4ptsdukld7?code=8000417533991768004";
+        private static string ServerUrl = "https://botchallenge.cloud.epam.com/codenjoy-contest/board/player/x0sfabkavz4ptsdukld7?code=8000417533991768004";
         //static string ServerUrl = "http://codenjoy.com:80/codenjoy-contest/board/player/3edq63tw0bq4w4iem7nb?code=1234567890123456789";
-        private static string ServerUrl = "http://127.0.0.1:8080/codenjoy-contest/board/player/x0sfabkavz4ptsdukld7?code=8000417533991768004";
+        //private static string ServerUrl = "http://127.0.0.1:8080/codenjoy-contest/board/player/x0sfabkavz4ptsdukld7?code=8000417533991768004";
         //private static string ServerUrl = "http://bomberman.coders.in.ua:8081/codenjoy-contest/board/player/x0sfabkavz4ptsdukld7?code=8000417533991768004";
 
         static void Main(string[] args)
@@ -50,7 +51,18 @@ namespace Demo
             Task.Run((Action)bot.Play);
 
             // waiting for any key
-            Console.ReadKey();
+
+            while (true)
+            {
+                if (bot.WaitingInput)
+                {
+                    bot.LastKey = Console.ReadKey(true).Key;
+                }
+                else
+                {
+                    Thread.Sleep(1);
+                }
+            }
 
             // on any key - asking AI client to stop.
             bot.InitiateExit();

@@ -10,7 +10,7 @@ namespace Bomberman.Api
         public const double BombRemoteControlFutureExpectedValue = Settings.BombRemoteControlDetonatorsCount * 1.5;
         public const double BombImmuneFutureExpectedValue = 5.0;
 
-        public const double DeathExpectedValueLoss = -Settings.DeathPenalty + SkipTurnExpectedLoss * 5;
+        public const double DeathExpectedValueLoss = - Settings.DeathPenalty + SkipTurnExpectedLoss * 5;
         public const double PerkDestroyFutureExpectedValueLoss = DeathExpectedValueLoss * ZombieAppearingFromPerkDestroyChance * DeathFromZombieChance;
         public const double ZombieAppearingFromPerkDestroyChance = 1.0;
         private const double DeathFromZombieChance = 0.7; // TODO: Reduce when implement fight with zombie
@@ -18,7 +18,7 @@ namespace Bomberman.Api
         public const double BombBlastMaxProbabilityToConsiderPassable = 0.25;
         public const double TempObjectDisapperMinProbabilityToConsiderPassable = 0.9;
 
-        public const double SkipTurnExpectedLoss = 0.5;
+        public const double SkipTurnExpectedLoss = -0.9;
         public const double LongStandingTurnsThreshold = 3;
 
         public const int PredictMovesCount =
@@ -27,6 +27,8 @@ namespace Bomberman.Api
 #else
         20;
 #endif
+
+        public const int MaxPredictedBlastDelay = 10;
 
         public const double Eplison = 1e-6;
 

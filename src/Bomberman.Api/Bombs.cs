@@ -5,9 +5,18 @@ namespace Bomberman.Api
 {
     public class Bombs
     {
-        public List<BombState> My { get; } = new List<BombState>();
-        public List<BombState> Enemy { get; } = new List<BombState>();
+        public List<BombState> My { get; private set; } = new List<BombState>();
+        public List<BombState> Enemy { get; private set; } = new List<BombState>();
         public IEnumerable<BombState> All => My.Concat(Enemy).ToArray();
+
+        public Bombs Clone(BomberState meCloned, List<BomberState> enemiesCloned)
+        {
+            return new Bombs
+            {
+                My = My.Select(b => b.Clone(meCloned)).ToList(),
+                Enemy = Enemy.Select(b => b.Clone(enemiesCloned.Single(e=>e.Location == b.WhoPlaced.Location))).ToList()
+            };
+        }
 
         public void TrackMy(BombState b)
         {

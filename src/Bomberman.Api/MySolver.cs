@@ -2,37 +2,35 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Threading;
 
 namespace Bomberman.Api
 {
     public class MySolver : MyBaseSolver
     {
-        private Random _rand = new Random();
+        public bool WaitingInput;
+        public ConsoleKey LastKey;
+
+        private static GameState currentSituation = new GameState();
         private Stopwatch _stopwatch = new Stopwatch();
 
-        public const int PredictMovesCount = Config.PredictMovesCount;
-
-        private static int[,] _distance;
-        private static bool[,,] _reached;
-        private static Move[][,] _directions;
-        private static PredictionField _pathRisk;
-
-        private static PredictionField _chopperLocationProbabilities;
-        private static PredictionField _chopperLocationProbabilitiesTmp;
-        private static PredictionField _enemyLocationProbabilities;
-        private static PredictionField _enemyLocationProbabilitiesTmp;
-        private static PredictionField _destroyValues;
-        private static PredictionField _bombBlastValues;
-        private static PredictionField _bombPlacementValues;
-
-        private static PredictionField _takePerkValues;
-        private static PredictionField _bombBlastProbabilities;
-        private static PredictionField _visitValues;
-        private static PredictionField _aggVisitValues;
-        private static double?[,] _pathValues;
-
-        private const int PossibleMovesCount = 5; // 4 directions + Stop
-        private double[,,,] _movePredictions;
+        private List<Move[]> PossibleMoves = new List<Move[]>
+        {
+            new[] {Move.Stop},
+            new[] {Move.Up},
+            new[] {Move.Left},
+            new[] {Move.Right},
+            new[] {Move.Down},
+            new[] {Move.Act, Move.Up},
+            new[] {Move.Act, Move.Left},
+            new[] {Move.Act, Move.Right},
+            new[] {Move.Act, Move.Down},
+            new[] {Move.Up, Move.Act},
+            new[] {Move.Left, Move.Act},
+            new[] {Move.Right, Move.Act},
+            new[] {Move.Down, Move.Act}
+        };
 
         public MySolver(string serverUrl) : base(serverUrl)
         {
@@ -40,711 +38,146 @@ namespace Bomberman.Api
 
         protected override IEnumerable<Move> GetMoves()
         {
+            WaitingInput = true;
+            LastKey = ConsoleKey.B;
+            //var key = Console.ReadKey(true);
+            while (LastKey == ConsoleKey.B)
+            {
+                Thread.Sleep(1);
+            }
+            WaitingInput = false;
+            switch (LastKey)
+            {
+                case ConsoleKey.UpArrow:
+                    return new []{ Move.Up};
+                case ConsoleKey.DownArrow:
+                    return new[] { Move.Down };
+                case ConsoleKey.LeftArrow:
+                    return new[] { Move.Left };
+                case ConsoleKey.RightArrow:
+                    return new[] { Move.Right };
+                case ConsoleKey.Spacebar:
+                    return new[] { Move.Act };
+                default:
+                    return new[] {Move.Stop};
+            }
+
             _stopwatch.Restart();
 
-            FillDestroyObjectValues();
-            Log.Debug($"DESTROY VALUES:\n{_destroyValues}");
-            FillVisitLocationValues();
-            Log.Debug($"VISIT VALUES:\n{_visitValues}");
-            FillBombPlacementValues();
-            Log.Debug($"BOMB BLAST VALUES:\n{_bombBlastValues}");
-            Log.Debug($"BOMB PLACEMENT VALUES:\n{_bombPlacementValues}");
-            FillAggregatedVisitLocationValues();
-            Log.Debug($"AGG VISIT VALUES:\n{_aggVisitValues}");
-
-            FillDistance();
-
-            Log.Debug($"Blasts:\n {_bombBlastProbabilities}");
-            Log.Debug($"Distances:\n{_distance.ToLogStr(x => x.ToString(), 3)}");
-
-            for (int i = 1; i <= PredictMovesCount; i++)
-            {
-                Log.Debug($"Directions at step {i}:\n{_directions[i].ToLogStr(x => x.ToString().Substring(0, 1), 3)}");
-            }
+            //currentSituation.Initialize(Time, Board, Me, Enemies, Chopers, Bombs, Perks);
 
             Log.Info($"Precalc time: {_stopwatch.ElapsedMilliseconds:F0}ms");
+            _stopwatch.Restart();
 
-            return FindBestMove();
+            var moves = FindBestMove();
+
+            Log.Info($"Move search time: {_stopwatch.ElapsedMilliseconds:F0}ms");
+
+            return moves;
         }
 
-        private IEnumerable<Move> FindBestMove()
+        private Move[] FindBestMove()
         {
-            double maxValue = -1000;
-            Move bestMove = Move.Stop;
-            List<Point> bestPath = null;
-
-            //var minMombProb = 1.0;
-            //for (int m = Move.Left; m < Move.Down; m++)
-            //{
-            //    if (_bombBlastProbabilities.Turn[1])
-            //}
-            foreach (var boardLocation in Board.Locations)
+            if (currentSituation.Board.IsMyBombermanDead)
             {
-                if (TryFindShortestSafePathTo(boardLocation, out List<Move> dir, out List<Point> path))
+                return new[] {Move.Stop};
+            }
+
+            Move[] best = null;
+
+            double bestValue = 2 * GameState.PathValueNegativeInf;
+            foreach (var move in PossibleMoves)
+            {
+                var evalRes = EvaluateMove(move);
+                if (evalRes > bestValue)
                 {
-                    var locScore = _aggVisitValues.Turn[path.Count].Values[boardLocation.Y, boardLocation.X];
-                    if (locScore > maxValue && dir.Count > 0 && dir.Count <=10)
-                    {
-                        maxValue = locScore;
-                        bestMove = dir[0];
-                        bestPath = path;
-                    }
+                    bestValue = evalRes;
+                    best = move;
                 }
-                //_aggVisitValues.Turn[_distance[boardLocation.Y, _bombBlastValues.X]]
             }
 
-            if (Me.BombCount > 0 && 
-                bestPath!= null && _bombPlacementValues.Turn[1].Values[Me.Location.Y, Me.Location.X] > bestPath.Take(5).Select((p, i) => _bombPlacementValues.Turn[i+1].Values[p.Y, p.X]).Max() - Config.Eplison)
+            if (best == null)
             {
-                yield return Move.Act;
+                return new[]{Move.Stop};
             }
 
-            yield return bestMove;
-            yield break;
-
-            yield return Move.Act;
-            var myPosition = Board.GetBomberman();
-            var direction = (Move)_rand.Next(5);
-            var newPosition = myPosition.Shift(direction);
-            if (Board.IsBarrierAt(newPosition))
-            {
-                yield return Move.Stop;
-            }
-            else yield return direction;
+            return best;
         }
 
-
-        private const int INF_DIST = 999;
-
-        private void FillDistance()
+        private double EvaluateMove(Move[] move)
         {
-            if (_distance == null || _directions == null || _reached == null)
-            {
-                _distance = new int[Board.Size, Board.Size];
-                _directions = new Move[PredictMovesCount + 1][,];
-                for (int i = 0; i <= PredictMovesCount; i++)
-                {
-                    _directions[i] = new Move[Board.Size, Board.Size];
-                }
-                _reached = new bool[Board.Size, Board.Size, PredictMovesCount + 1];
-            }
-            ResetPredictionField(ref _pathRisk);
+            //var b = Board.Clone();
+
+            return 0;
+        }
+
         
-            for (int i = 0; i < Board.Size; i++)
-            {
-                for (int j = 0; j < Board.Size; j++)
-                {
-                    _distance[i, j] = INF_DIST;
-
-                    for (int m = 0; m <= PredictMovesCount; m++)
-                    {
-                        _directions[m][i, j] = Move.Stop;
-                        _pathRisk.Turn[m].Values[i, j] = 1.0;
-                    }
-                }
-            }
-
-            Array.Clear(_reached, 0, _reached.Length);
-        
-            var q = new Queue<(Point Location, int Distance, double BlastRisk, Move LastMoveToGetHere)>();
-            q.Enqueue((Me.Location, 0, 0, Move.Stop));
-
-            while (q.Count > 0)
-            {
-                var (p, d, risk, dir) = q.Dequeue();
-
-                if (risk > Config.BombBlastMaxProbabilityToConsiderPassable)
-                {
-                    continue;
-                }
-
-                if (Board.IsAt(p, Element.WALL))
-                {
-                    continue;
-                }
-
-                if (Board.IsAt(p, Element.DESTROYABLE_WALL) && ProbabilityBlastAtBefore(p, d) < Config.TempObjectDisapperMinProbabilityToConsiderPassable)
-                {
-                    continue;
-                }
-
-                if (Board.IsOtherUnitAt(p) && ProbabilityBlastAtBefore(p, d) < Config.TempObjectDisapperMinProbabilityToConsiderPassable && d < 10 /*Units are likely to move somewhere*/)
-                {
-                    continue;
-                }
-
-                if (Board.IsBombAt(p))
-                {
-                    var bomb = Bombs.All.Single(b => b.Location == p);
-                    if (bomb.ProbabilityExplodesBefore(d, Time) < Config.TempObjectDisapperMinProbabilityToConsiderPassable)
-                    {
-                        continue;
-                    }
-                }
-
-                if (d < _distance[p.Y, p.X] + 5)
-                {
-                    if (d < _distance[p.Y, p.X])
-                    {
-                        _distance[p.Y, p.X] = d;
-                    }
-
-                    if (risk < _pathRisk.Turn[d].Values[p.Y, p.X] || risk < Config.Eplison)
-                    {
-                        _pathRisk.Turn[d].Values[p.Y, p.X] = risk;
-                        _directions[d][p.Y, p.X] = dir;
-                    }
-
-                    if (!_reached[p.Y, p.X, d])
-                    {
-                        _reached[p.Y, p.X, d] = true;
-
-                        if (d < PredictMovesCount)
-                        {
-                            for (var m = Move.Left; m <= Move.Stop; m++)
-                            {
-                                var nextPos = p.Shift(m);
-                                q.Enqueue((nextPos, d + 1, CalcProbabilityAnyOf(risk, _bombBlastProbabilities.Turn[d + 1].Values[nextPos.Y, nextPos.X]), m));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        private bool TryFindShortestSafePathTo(Point p, out List<Move> directions, out List<Point> path)
-        {
-            var dist = _distance[p.Y, p.X];
-            if (dist == INF_DIST)
-            {
-                directions = null;
-                path = null;
-                return false;
-            }
-            directions = new List<Move>(dist);
-            path = new List<Point>(dist);
-
-            for (var pp = p; dist != 0; dist--)
-            {
-                path.Add(pp);
-                var dir = _directions[dist][pp.Y, pp.X];
-                directions.Add(dir);
-                pp = pp.Shift(dir.Reverse());
-            }
-
-            directions.Reverse();
-            path.Reverse();
-
-            return true;
-        }
-
-        private double ProbabilityBlastAtBefore(Point location, int turn)
-        {
-            if (turn <= 1)
-            {
-                return 0;
-            }
-            return CalcProbabilityAnyOf(Enumerable.Range(1, turn - 1).Select(t => _bombBlastProbabilities.Turn[t].Values[location.Y, location.X]));
-        }
-
-        private void FillDestroyObjectValues()
-        {
-            ResetPredictionField(ref _destroyValues);
-            ResetPredictionField(ref _visitValues);
-
-            AddWallDestructionValues(_destroyValues);
-            AddChopperValueMovePredictions(_destroyValues);
-            AddEnemyValueMovePredictions(_destroyValues);
-            AddPerkDestroyValues(_destroyValues);
-        }
-
-        private void FillVisitLocationValues()
-        {
-            ResetPredictionField(ref _visitValues);
-
-            AddTakePerkValues(_visitValues);
-            AddDieFromChopperValues(_visitValues);
-            AddDieFromBombValues(_visitValues);
-
-            //TODO: Implement DieFromZombie values
-            //TODO: Implement Lockdown chance analysis both by walls and by enemies
-        }
-
-        private void AddWallDestructionValues(PredictionField f)
-        {
-            foreach (var boardLocation in Board.Locations)
-            {
-                var element = Board.GetAt(boardLocation);
-                var elementDestructionValue = GetElementDestructionValue(element);
-
-                if (IsStaticElementOrMe(element))
-                {
-                    f.Turn[0].Values[boardLocation.Y, boardLocation.X] = elementDestructionValue;
-
-                    for (int t = 1; t <= PredictMovesCount; t++)
-                    {
-                        f.Turn[t].Values[boardLocation.Y, boardLocation.X] = elementDestructionValue;
-                    }
-                }
-            }
-        }
-
-        private void AddTakePerkValues(PredictionField f)
-        {
-            FillTakePerkValues();
-            f.Add(_takePerkValues);
-        }
-
-        private void FillTakePerkValues()
-        {
-            ResetPredictionField(ref _takePerkValues);
-
-            for (int t = 0; t <= PredictMovesCount; t++)
-            {
-                foreach (var perk in Perks)
-                {
-                    if (perk.ExpiresIn >= t)
-                    {
-                        //TODO: Take into account different perk value based on existing taken perks
-                        _takePerkValues.Turn[t].Values[perk.Location.Y, perk.Location.X] = GetElementVisitValue(perk.PerkType);
-                    }
-                }
-            }
-        }
-
-        public void FillAggregatedVisitLocationValues()
-        {
-            ResetPredictionField(ref _aggVisitValues);
-
-            _aggVisitValues.Add(_visitValues);
-            _aggVisitValues.Add(_bombPlacementValues);
-            
-            //TODO: add bomb placement values
-            //TODO: for each location find if it's safe to put bomb - risk of death
-            //TODO: for each destroyValue mark places where bomb would hit that
-        }
-
-        //private void FillPathValues()
+        //public BombState CloneBombStateForNextTurn(BombState bomb, bool isMy, bool isBombActionInMove)
         //{
-        //    if (_pathValues == null)
+        //    if (isMy && isBombActionInMove && bomb.IsRemoteControlled)
         //    {
-        //        _pathValues = new double[Board.Size, Board.Size];
+        //        return null;
+        //    }
+
+        //    if (bomb.Timer == 1)
+        //    {
+        //        return null;
+        //    }
+
+        //    if (bomb.IsRemoteControlled)
+        //    {
+        //        return new BombState(bomb.Location, bomb.Timer, bomb.WhoPlaced, bomb.CreationTime);
         //    }
         //    else
         //    {
-        //        Array.Clear(_pathValues, 0, _pathValues.Length);
-        //    }
-
-        //    foreach (var targetLocation in Board.Locations)
-        //    {
-        //        if (TryFindShortestSafePathTo(targetLocation, out List<Move> directions, out List<Point> locations))
-        //        {
-        //            foreach (var pathLoc in locations)
-        //            {
-        //                _pathValues[targetLocation.Y, targetLocation.Y]+=_takePerkValues[pathLoc.]
-        //            }
-        //        }
+        //        return new BombState(bomb.Location, bomb.Timer - 1, bomb.WhoPlaced, bomb.CreationTime);
         //    }
         //}
 
-        private void FillBombBlastValues()
-        {
-            ResetPredictionField(ref _bombBlastValues);
-
-            for (int t = 1; t <= PredictMovesCount; t++)
-            {
-                var bombRadius = t >= Me.BombRadiusExpirationTime ? Settings.BombRadiusDefault : Me.BombRadius;
-              
-                foreach (var bombPos in Board.Locations)
-                {
-                    if (!Board.IsAnyOfAt(bombPos, Element.WALL, Element.DESTROYABLE_WALL))
-                    {
-                        _bombBlastValues.Turn[t].Values[bombPos.Y, bombPos.X] += _destroyValues.Turn[t].Values[bombPos.Y, bombPos.X]; // In case choppers expected location is same sa bomb - it's good location in fact
-
-                        for (var m = Move.Left; m <= Move.Down; m++)
-                        {
-                            var blastPassProbability = 1.0;
-                            for (int d = 1; d <= bombRadius && blastPassProbability > Config.Eplison; d++)
-                            {
-                                var blastPos = bombPos.Shift(m, d);
-                                _bombBlastValues.Turn[t].Values[bombPos.Y, bombPos.X] += _destroyValues.Turn[t].Values[blastPos.Y, blastPos.X] * blastPassProbability;
-
-                                if (Board.IsAt(blastPos, Element.DESTROYABLE_WALL))
-                                {
-                                    blastPassProbability = CalcProbabilityAllOf(blastPassProbability, ProbabilityBlastAtBefore(bombPos, t));
-                                }
-
-                                if (Board.IsAt(blastPos, Element.WALL))
-                                {
-                                    blastPassProbability = 0;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        private void FillBombPlacementValues()
-        {
-            FillBombBlastValues();
-
-            ResetPredictionField(ref _bombPlacementValues);
-
-            for (int t = 1; t <= PredictMovesCount; t++)
-            {
-                int bombTimer;
-                bool isRemote;
-
-                if (Me.DetonatorsCount > 0)
-                {
-                    isRemote = true;
-
-                    const int blastUnderImmuneInSec = 1;
-                    if (Me.WhenImmuneExpires(Time) > t + blastUnderImmuneInSec)
-                    {
-                        bombTimer = blastUnderImmuneInSec;
-                    }
-                    else
-                    {
-                        bombTimer = 3; // TODO: Maybe worth calculating more precisely for each case to find safe spot
-                    }
-                }
-                else
-                {
-                    bombTimer = Settings.BombTimer;
-                    isRemote = false;
-                }
-
-                if (t + bombTimer > PredictMovesCount)
-                {
-                    break;
-                }
-
-                foreach (var bombPos in Board.Locations)
-                {
-                    if (isRemote)
-                    {
-                        double maxBlastValueOfAllDelays = 0;
-                        for (int bt = t; bt <= PredictMovesCount - bombTimer; bt++)
-                        {
-                            maxBlastValueOfAllDelays = Math.Max(maxBlastValueOfAllDelays, _bombBlastValues.Turn[bt + bombTimer].Values[bombPos.Y, bombPos.X] - (bt - t) * Config.SkipTurnExpectedLoss);
-                        }
-                        _bombPlacementValues.Turn[t].Values[bombPos.Y, bombPos.X] = maxBlastValueOfAllDelays;
-                    }
-                    else
-                    {
-                        _bombPlacementValues.Turn[t].Values[bombPos.Y, bombPos.X] += _bombBlastValues.Turn[t + bombTimer].Values[bombPos.Y, bombPos.X];
-                    }
-                }
-            }
-        }
-
-        private bool IsStaticElementOrMe(Element e)
-        {
-            return e != Element.OTHER_BOMBERMAN && e != Element.OTHER_BOMB_BOMBERMAN && e != Element.MEAT_CHOPPER;
-        }
-
-        private double GetElementDestructionValue(Element el)
-        {
-            switch (el)
-            {
-                case Element.DESTROYABLE_WALL:
-                    return Settings.DestroyWallAward + Settings.PerkProbability * Config.PerkDiscoveringAvgValue;
-                case Element.MEAT_CHOPPER:
-                    return Settings.KillMeatchopperAward;
-                case Element.OTHER_BOMBERMAN:
-                case Element.OTHER_BOMB_BOMBERMAN:
-                    return Settings.KillBombermanAward;
-                default: return 0;
-            }
-        }
-
-        private double GetElementVisitValue(Element el)
-        {
-            switch (el)
-            {
-                case Element.BOMB_BLAST_RADIUS_INCREASE:
-                    return Settings.PerkTakingAward + Config.BombRadiusFutureExpectedValue;
-                case Element.BOMB_COUNT_INCREASE:
-                    return Settings.PerkTakingAward + Config.BombCountFutureExpectedValue;
-                case Element.BOMB_REMOTE_CONTROL:
-                    return Settings.PerkTakingAward + Config.BombRemoteControlFutureExpectedValue;
-                case Element.BOMB_IMMUNE:
-                    return Settings.PerkTakingAward + Config.BombImmuneFutureExpectedValue;
-                default: return 0;
-            }
-        }
-
-        private void AddChopperValueMovePredictions(PredictionField f)
-        {
-            ResetPredictionField(ref _chopperLocationProbabilities);
-
-            foreach (var meatchoper in Chopers)
-            {
-                ResetPredictionField(ref _chopperLocationProbabilitiesTmp);
-                FillMovePredictions(_chopperLocationProbabilitiesTmp, meatchoper.Location, meatchoper.LastDirection, false, 1.0, Config.ChopperMoveProbability, CanChopperEnterLocation);
-                f.AddWithMultiplier(_chopperLocationProbabilitiesTmp, GetElementDestructionValue(Board.GetAt(meatchoper.Location)));
-                _chopperLocationProbabilities.AddWithAggregator(_chopperLocationProbabilitiesTmp, (x, y) => CalcProbabilityAnyOf(x, y));
-            }
-        }
-
-        private void AddEnemyValueMovePredictions(PredictionField f)
-        {
-            ResetPredictionField(ref _enemyLocationProbabilities);
-
-            foreach (var enemy in Enemies)
-            {
-                ResetPredictionField(ref _enemyLocationProbabilitiesTmp);
-                FillMovePredictions(_enemyLocationProbabilitiesTmp, enemy.Location, enemy.LastDirection, enemy.IsLongStanding, 1.0, Config.EnemyMoveProbability, CanBomberEnterLocation);
-                f.AddWithMultiplier(_enemyLocationProbabilitiesTmp, GetElementDestructionValue(Board.GetAt(enemy.Location)));
-                _enemyLocationProbabilities.AddWithAggregator(_enemyLocationProbabilitiesTmp, (x, y) => CalcProbabilityAnyOf(x, y));
-            }
-        }
-
-        private void FillMovePredictions(PredictionField f, Point currentLocation, Move lastMoveDirection, bool longStanding, double estimatedCurrentValue, MoveProbability probability, Func<Point, int, bool> canEnterLocation)
-        {
-            if (_movePredictions == null)
-            {
-                _movePredictions = new double[PredictMovesCount + 1, Board.Size, Board.Size, PossibleMovesCount];
-            }
-            else
-            {
-                Array.Clear(_movePredictions, 0, _movePredictions.Length);
-            }
-
-            _movePredictions[0, currentLocation.Y, currentLocation.X, (int) lastMoveDirection] = estimatedCurrentValue;
-            
-            for (int t = 0; t < PredictMovesCount; t++)
-            {
-                if (longStanding)
-                {
-                    _movePredictions[t+1, currentLocation.Y, currentLocation.X, (int)lastMoveDirection] = estimatedCurrentValue;
-                    continue;
-                }
-
-                foreach (var boardLocation in Board.Locations)
-                {
-                    for (Move lm = 0; lm <= Move.Stop; lm++)
-                    {
-                        var v = _movePredictions[t, boardLocation.Y, boardLocation.X, (int) lm];
-                        if (v > 0)
-                        {
-                            if (lm == Move.Stop)
-                            {
-                                Point leftPos = boardLocation.Shift(Move.Left);
-                                bool leftAllowed = canEnterLocation(leftPos, t + 1);
-                                Point rightPos = boardLocation.Shift(Move.Right);
-                                bool rightAllowed = canEnterLocation(rightPos, t + 1);
-                                Point upPos = boardLocation.Shift(Move.Up);
-                                bool upAllowed = canEnterLocation(upPos, t + 1);
-                                Point downPos = boardLocation.Shift(Move.Down);
-                                bool downAllowed = canEnterLocation(downPos, t + 1);
-                                bool stopAllowed = probability.Stop > Config.Eplison;
-
-                                var everyDirectionProbability = 1.0 / (leftAllowed.AsInt() + rightAllowed.AsInt() + upAllowed.AsInt() + downAllowed.AsInt() + stopAllowed.AsInt());
-
-                                if (stopAllowed)
-                                {
-                                    _movePredictions[t + 1, boardLocation.Y, boardLocation.X, (int) Move.Stop] += v * everyDirectionProbability;
-                                }
-
-                                if (leftAllowed)
-                                {
-                                    _movePredictions[t + 1, leftPos.Y, leftPos.X, (int) Move.Left] += v * everyDirectionProbability;
-                                }
-                                if (rightAllowed)
-                                {
-                                    _movePredictions[t + 1, rightPos.Y, rightPos.X, (int)Move.Right] += v * everyDirectionProbability;
-                                }
-                                if (upAllowed)
-                                {
-                                    _movePredictions[t + 1, upPos.Y, upPos.X, (int)Move.Up] += v * everyDirectionProbability;
-                                }
-                                if (downAllowed)
-                                {
-                                    _movePredictions[t + 1, downPos.Y, downPos.X, (int)Move.Down] += v * everyDirectionProbability;
-                                }
-                            }
-                            else
-                            {
-                                var keepDirectionAllowed = canEnterLocation(boardLocation.Shift((Move) lm), t + 1);
-                                var turnLeftAllowed = canEnterLocation(boardLocation.Shift(((Move) lm).TurnLeft()), t + 1);
-                                var turnRightAllowed = canEnterLocation(boardLocation.Shift(((Move) lm).TurnRight()), t + 1);
-
-                                var normalizedProbabilities = probability.Normalize(keepDirectionAllowed, turnLeftAllowed, turnRightAllowed);
-
-                                _movePredictions[t + 1, boardLocation.Y, boardLocation.X, (int) Move.Stop] += v * normalizedProbabilities.Stop;
-
-                                var keepDirectionNewPos = boardLocation.Shift(lm);
-                                if (keepDirectionAllowed)
-                                {
-                                    _movePredictions[t + 1, keepDirectionNewPos.Y, keepDirectionNewPos.X, (int) lm] += v * normalizedProbabilities.KeepDirection;
-                                }
-
-                                if (turnLeftAllowed)
-                                {
-                                    var turnLeftPos = boardLocation.Shift(lm.TurnLeft());
-                                    _movePredictions[t + 1, turnLeftPos.Y, turnLeftPos.X, (int) lm.TurnLeft()] += v * normalizedProbabilities.TurnLeft;
-                                }
-
-                                if (turnRightAllowed)
-                                {
-                                    var turnRightPos = boardLocation.Shift(lm.TurnRight());
-                                    _movePredictions[t + 1, turnRightPos.Y, turnRightPos.X, (int) lm.TurnRight()] += v * normalizedProbabilities.TurnRight;
-                                }
-
-                                var reverseNewPos = boardLocation.Shift(lm.Reverse());
-                                _movePredictions[t + 1, reverseNewPos.Y, reverseNewPos.X, (int) lm.Reverse()] += v * normalizedProbabilities.Reverse;
-                            }
-                        }
-                    }
-                }
-            }
-
-            for (int t = 0; t <= PredictMovesCount; t++)
-            {
-                foreach (var boardLocation in Board.Locations)
-                {
-                    for (Move lm = 0; lm <= Move.Stop; lm++)
-                    {
-                        f.Turn[t].Values[boardLocation.Y, boardLocation.X] += _movePredictions[t, boardLocation.Y, boardLocation.X, (int) lm];
-                    }
-                }
-            }
-        }
-
-        private bool CanBomberEnterLocation(Point location, int afterSecondsCount)
-        {
-            //TODO: Take into account bombers, bombs, choppers etc.
-            return !Board.IsAnyOfAt(location, Element.WALL, Element.DESTROYABLE_WALL);
-        }
-
-        private bool CanChopperEnterLocation(Point location, int afterSecondsCount)
-        {
-            return !Board.IsAnyOfAt(location, Element.WALL, Element.DESTROYABLE_WALL);
-        }
-
-        private bool CanZombieEnterLocation(Point location, int afterSecondsCount)
-        {
-            return !Board.IsAnyOfAt(location, Element.WALL);
-        }
-
-        private void AddPerkDestroyValues(PredictionField f)
-        {
-            for (int t = 0; t <= PredictMovesCount; t++)
-            {
-                foreach (var perk in Perks)
-                {
-                    if (perk.ExpiresIn >= t)
-                    {
-                        f.Turn[t].Values[perk.Location.Y, perk.Location.X] += Config.PerkDestroyFutureExpectedValueLoss;
-                    }
-                }
-            }
-        }
         
-        private void AddDieFromChopperValues(PredictionField f)
-        {
-            f.AddWithMultiplier(_chopperLocationProbabilities, 0, 1, Config.DeathExpectedValueLoss);
-        }
 
-        private void AddDieFromBombValues(PredictionField f)
-        {
-            FillBombBlastProbabilities();
-            f.AddWithMultiplier(_bombBlastProbabilities, Config.DeathExpectedValueLoss);
-            //Log.Debug($"BLAST VALUES:\n{_bombBlastProbabilities}");
-        }
+        //private IEnumerable<Move> FindBestMove()
+        //{
+        //    var maxValue = PathValueNegativeInf;
+        //    List<Point> bestPath = new List<Point> {Me.Location};
+        //    List<Move> bestPathDirections = new List<Move> {Move.Stop};
 
-        private void FillBombBlastProbabilities()
-        {
-            ResetPredictionField(ref _bombBlastProbabilities);
+        //    foreach (var target in Board.Locations)
+        //    {
+        //        for (int d = _distance[target.Y, target.X]; d <= PredictMovesCount; d++)
+        //        {
+        //            if (_pathValues[d][target.Y, target.X] > maxValue)
+        //            {
+        //                maxValue = _pathValues[d][target.Y, target.X];
+        //                bestPathDirections = _pathsDirTo[d][target.Y, target.X];
+        //                bestPath = _pathsTo[d][target.Y, target.X];
+        //            }
+        //        }
+        //    }
 
-            foreach (var bomb in
-                //Important to process timer-bombs first
-                Bombs.Enemy.Where(b => !b.IsRemoteControlled).OrderBy(b => b.Timer.Value)
-                    .Concat(Bombs.Enemy.Where(b => b.IsRemoteControlled))
-                    .Concat(Bombs.My.Where(b => !b.IsRemoteControlled)))
-            {
-                if (!bomb.IsRemoteControlled)
-                {
-                    AddBlastProbabilityAtTurn(bomb, bomb.Timer.Value, 1.0, _bombBlastProbabilities);
-                }
-                else
-                {
-                    for (int t = PredictMovesCount; t >= 1; t--) // Reverse order processing for bomb not to count destroyable walls of itself potentially blasting at earlier moves
-                    {
-                        var turnBlastProbability = Config.RemoteBombEnemyDetonationChanceAtTurn((Time - bomb.CreationTime) + t);
-                        AddBlastProbabilityAtTurn(bomb, t, turnBlastProbability, _bombBlastProbabilities);
-                    }
-                }
-            }
-        }
+        //    var bestPathLength = bestPath.Count;
 
-        private void AddBlastProbabilityAtTurn(BombState bomb, int turn, double blastProbability, PredictionField blastProbabilityField)
-        {
-            blastProbabilityField.Turn[turn].Values[bomb.Location.Y, bomb.Location.X] = blastProbability;
+        //    if (Me.BombCount > 0 && 
+        //        bestPath!= null && _bombPlacementValues.Turn[1].Values[Me.Location.Y, Me.Location.X] > bestPath.Take(5).Select((p, i) => _bombPlacementValues.Turn[i+1].Values[p.Y, p.X]).Max() - Config.Eplison)
+        //    {
+        //        yield return Move.Act;
+        //    }
 
-            for (var m = Move.Left; m <= Move.Down; m++)
-            {
-                var blastReachProbability = blastProbability;
-                for (int d = 1; d <= bomb.Radius && blastReachProbability > Config.Eplison; d++)
-                {
-                    var pos = bomb.Location.Shift(m, d);
+        //    yield return bestPathDirections[0];
+        //    yield break;
 
-                    if (!Board.IsNonDestroyableBlastStopperAt(pos))
-                    {
-                        blastProbabilityField.Turn[turn].Values[pos.Y, pos.X] = CalcProbabilityAnyOf(blastProbabilityField.Turn[turn].Values[pos.Y, pos.X], blastReachProbability);
-                    }
 
-                    if (Board.IsBlastStopperAt(pos))
-                    {
-                        if (Board.IsDestroyableBlastStopperAt(pos))
-                        {
-                            var wallAlreadyDestroyedProbability = CalcProbabilityAnyOf(Enumerable.Range(1, turn - 1)
-                                .Select(t => blastProbabilityField.Turn[t].Values[pos.Y, pos.X]));
+        //    yield return Move.Act;
+        //    var myPosition = Board.GetBomberman();
+        //    var direction = (Move)_rand.Next(5);
+        //    var newPosition = myPosition.Shift(direction);
+        //    if (Board.IsBarrierAt(newPosition))
+        //    {
+        //        yield return Move.Stop;
+        //    }
+        //    else yield return direction;
+        //}
 
-                            blastReachProbability *= wallAlreadyDestroyedProbability;
-                        }
-                        else
-                        {
-                            blastReachProbability = 0;
-                        }
-                    }
-                }
-            }
-        }
 
-        public static double CalcProbabilityAnyOf(params double[] probabilities)
-        {
-            return CalcProbabilityAnyOf((IEnumerable<double>) probabilities);
-        }
-
-        public static double CalcProbabilityAnyOf(IEnumerable<double> probabilities)
-        {
-            return 1 - CalcProbabilityAllOf(probabilities.Select(p => 1.0 - p).ToArray()); // 1.0 - All not happen
-        }
-
-        public static double CalcProbabilityAllOf(params double[] probabilities)
-        {
-            return CalcProbabilityAllOf((IEnumerable<double>)probabilities);
-        }
-
-        public static double CalcProbabilityAllOf(IEnumerable<double> probabilities)
-        {
-            return probabilities.Aggregate(1.0, (rp, p) => rp * p);
-        }
-
-        private void ResetPredictionField(ref PredictionField f)
-        {
-            if (f == null)
-            {
-                f = new PredictionField(PredictMovesCount, Board.Size, Board.Size);
-            }
-            else
-            {
-                f.Clear();
-            }
-        }
     }
 }

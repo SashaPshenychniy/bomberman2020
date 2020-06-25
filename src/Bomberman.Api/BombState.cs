@@ -6,26 +6,34 @@ namespace Bomberman.Api
     public class BombState
     {
         public Point Location { get; }
-        public int CreationTime { get; }
-        public int Radius { get; }
+        public int CreationTime { get; private set; }
+        public int Radius { get; private set; }
         public int? Timer { get; private set; }
         public int? BlastTurn => CreationTime + Timer;
         public bool IsRemoteControlled => !Timer.HasValue;
+        public BomberState WhoPlaced { get; private set; }
 
-        private readonly BomberState _whoPlaced;
-
-        public BombState(Point location, Element state, BomberState whoPlaced, int currentTime)
+        public BombState(Point location, Element state, BomberState whoPlaced, int settlementTime)
         {
-            _whoPlaced = whoPlaced;
+            WhoPlaced = whoPlaced;
             Location = location;
-            CreationTime = currentTime;
+            CreationTime = settlementTime;
             Radius = whoPlaced.BombRadius;
 
             var stateTimer = GetTimerFromState(state);
             Timer = stateTimer < Settings.BombTimer ? stateTimer :
                 whoPlaced.DetonatorsCount > 0 ? (int?) null : Settings.BombTimer;
             
-            whoPlaced.ProcessBombPlaced(location, currentTime);
+            whoPlaced.ProcessBombPlaced(location, settlementTime);
+        }
+
+        public BombState Clone(BomberState whoPlacedCloned)
+        {
+            return new BombState(Location, Element.BOMB_TIMER_5, whoPlacedCloned, CreationTime)
+            {
+                Radius = Radius,
+                Timer = Timer
+            };
         }
 
         public void ProcessTurn(Element newState)
@@ -62,11 +70,11 @@ namespace Bomberman.Api
         {
             if (IsRemoteControlled)
             {
-                _whoPlaced.ProcessRemoteBombDetonated(Location);
+                WhoPlaced.ProcessRemoteBombDetonated(Location);
             }
             else
             {
-                _whoPlaced.ProcessTimerBombDetonated(Location);
+                WhoPlaced.ProcessTimerBombDetonated(Location);
             }
         }
 
@@ -101,7 +109,7 @@ namespace Bomberman.Api
                 return 0;
             }
 
-            return MySolver.CalcProbabilityAnyOf(Enumerable.Range(currentTime - CreationTime, t).Select(Config.RemoteBombEnemyDetonationChanceAtTurn));
+            return GameState.CalcProbabilityAnyOf(Enumerable.Range(currentTime - CreationTime, t).Select(Config.RemoteBombEnemyDetonationChanceAtTurn));
         }
 
         public override string ToString()
