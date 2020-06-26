@@ -7,7 +7,7 @@
         public const int DeathPenalty = 30;
         public const int BombsCountDefault = 1;
         public const int BombRadiusDefault = 3;
-        public const int KillBombermanAward = 20;
+        public const int KillBombermanAward = 7;//20
         public const int KillMeatchopperAward = 10;
         public const int DestroyWallAward = 1;
         public const double PerkProbability = 0.2;

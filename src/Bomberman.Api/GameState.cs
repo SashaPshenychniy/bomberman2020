@@ -170,9 +170,9 @@ namespace Bomberman.Api
                     {
                         if (move[0] == Move.Act)
                         {
-                            var newPos = posBeforeMove.Shift(move[1]);
+                            pos = posBeforeMove.Shift(move[1]);
                             Board.Replace(posBeforeMove, Element.BOMB_TIMER_5);
-                            Board.Replace(newPos, Element.BOMBERMAN);
+                            Board.Replace(pos, Element.BOMBERMAN);
                             valueGained += _bombPlacementValues.Turn[1].Values[posBeforeMove.Y, posBeforeMove.X];
                         }
                         else
@@ -246,28 +246,31 @@ namespace Bomberman.Api
             Board = newBoard;
 
 
-            GameState orig = null;
+            //GameState orig = null;
 
             if (IsNewRoundStarted())
             {
                 InitializeNewRound();
                 //PrevBoard = new Board(new string((char) Element.Space, newBoard.Size * newBoard.Size));
+                //ProcessNewBoardState();
             }
             else
             {
-                orig = this.Clone();
+                //orig = this.Clone();
                 ProcessNewBoardState();
             }
 
+#if DEBUG
             LogGameState();
+#endif
 
-            foreach (var boardLocation in Board.Locations)
-            {
-                if (Board.IsBombAt(boardLocation) && Bombs.All.All(b=>b.Location != boardLocation))
-                {
+            //foreach (var boardLocation in Board.Locations)
+            //{
+            //    if (Board.IsBombAt(boardLocation) && Bombs.All.All(b=>b.Location != boardLocation))
+            //    {
 
-                }
-            }
+            //    }
+            //}
 
             AnalyzeGameState();
         }
@@ -469,6 +472,8 @@ namespace Bomberman.Api
             }
         }
 
+        private BomberState DefaultBomber = new BomberState(new Point(0,0));
+
         private IEnumerable<(Point BombLocation, BomberState Bomber)> WhoPlacedThoseBombs(IEnumerable<Point> newBombLocations, IEnumerable<BomberState> newBomberStates)
         {
             var unassignedBombs = newBombLocations.ToList();
@@ -529,7 +534,6 @@ namespace Bomberman.Api
                             newBomberStates.FirstOrDefault(b => b.Location == bombNeighbouringLocation);
                         if (bomberAtNeignboringLocation != null)
                         {
-
                             yield return (unassignedBombs[i], bomberAtNeignboringLocation);
 
                             unassignedBombs.RemoveAt(i);
@@ -594,15 +598,15 @@ namespace Bomberman.Api
 
         private void LogGameState()
         {
-            Log.Info($"------------------------------------ TURN {Time} ------------------------------------");
-            Log.Info($"\n{Board.ToString()}");
-            Log.Info("GAME STATE:");
-            Log.Info($"Me: {Me}");
-            Log.Info($"Enemies: {string.Concat(Enemies.Select(e => "\n    " + e))}");
-            Log.Info($"Choppers: {string.Join(", ", Chopers)}");
-            Log.Info($"My Bombs: {string.Join(", ", Bombs.My)}");
-            Log.Info($"Enemy Bombs: {string.Join(", ", Bombs.Enemy)}");
-            Log.Info($"Perks: {string.Join(", ", Perks)}");
+            Log.Debug($"------------------------------------ TURN {Time} ------------------------------------");
+            Log.Debug($"\n{Board.ToString()}");
+            Log.Debug("GAME STATE:");
+            Log.Debug($"Me: {Me}");
+            Log.Debug($"Enemies: {string.Concat(Enemies.Select(e => "\n    " + e))}");
+            Log.Debug($"Choppers: {string.Join(", ", Chopers)}");
+            Log.Debug($"My Bombs: {string.Join(", ", Bombs.My)}");
+            Log.Debug($"Enemy Bombs: {string.Join(", ", Bombs.Enemy)}");
+            Log.Debug($"Perks: {string.Join(", ", Perks)}");
         }
 
 

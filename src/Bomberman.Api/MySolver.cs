@@ -12,20 +12,22 @@ namespace Bomberman.Api
         public bool WaitingInput;
         public ConsoleKey LastKey;
 
-        private static GameState currentSituation = new GameState();
+        private static GameState _currentSituation = new GameState();
         private Stopwatch _stopwatch = new Stopwatch();
 
         private List<Move[]> PossibleMoves = new List<Move[]>
         {
-            new[] {Move.Stop},
-            new[] {Move.Up},
-            new[] {Move.Left},
-            new[] {Move.Right},
-            new[] {Move.Down},
             new[] {Move.Act, Move.Up},
             new[] {Move.Act, Move.Left},
             new[] {Move.Act, Move.Right},
             new[] {Move.Act, Move.Down},
+            
+            new[] {Move.Up},
+            new[] {Move.Left},
+            new[] {Move.Right},
+            new[] {Move.Down},
+            new[] {Move.Stop},
+
             new[] {Move.Up, Move.Act},
             new[] {Move.Left, Move.Act},
             new[] {Move.Right, Move.Act},
@@ -35,6 +37,8 @@ namespace Bomberman.Api
         public MySolver(string serverUrl) : base(serverUrl)
         {
         }
+
+        private int removeWaitingTime = 0;
 
         protected override IEnumerable<Move> GetMoves(Board gameBoard)
         {
@@ -61,26 +65,50 @@ namespace Bomberman.Api
             //    default:
             //        return new[] { Move.Stop };
             //}
+            Move[] moves;
 
-            _stopwatch.Restart();
+            try
+            {
+                _stopwatch.Restart();
 
-            currentSituation.ApplyNextTurnBoardState(gameBoard);
+                _currentSituation.ApplyNextTurnBoardState(gameBoard);
 
-            Log.Info($"Precalc time: {_stopwatch.ElapsedMilliseconds:F0}ms");
-            _stopwatch.Restart();
+                if (_currentSituation.IsMyRemoveBombExists)
+                {
+                    removeWaitingTime++;
+                }
+                else
+                {
+                    removeWaitingTime = 0;
+                }
 
-            var moves = FindBestMove();
+                if (removeWaitingTime > 7)
+                {
+                    return new Move[]{Move.Act};
+                }
 
-            Log.Info($"Move search time: {_stopwatch.ElapsedMilliseconds:F0}ms");
+                Log.Info($"Precalc time: {_stopwatch.ElapsedMilliseconds:F0}ms");
+                _stopwatch.Restart();
+
+                moves = FindBestMove();
+
+                Log.Info($"Move search time: {_stopwatch.ElapsedMilliseconds:F0}ms");
+            }
+            catch(Exception e)
+            {
+                Log.Error($"{e}");
+                _currentSituation = new GameState();
+                moves = new[] {Move.Stop};
+            }
 
             return moves;
         }
 
         private Move[] FindBestMove()
         {
-            return new[] { Move.Act };
+            //return new[] { Move.Act };
 
-            if (currentSituation.Board.IsMyBombermanDead)
+            if (_currentSituation.Board.IsMyBombermanDead)
             {
                 return new[] {Move.Stop};
             }
@@ -96,6 +124,12 @@ namespace Bomberman.Api
                     bestValue = evalRes;
                     best = move;
                 }
+#if !TEST
+                if (TurnTimer.ElapsedMilliseconds > 800)
+                {
+                    break;
+                }
+#endif
             }
 
             if (best == null)
@@ -114,9 +148,9 @@ namespace Bomberman.Api
 
             double moveScore;
             
-            if (currentSituation.IsMoveAllowed(move))
+            if (_currentSituation.IsMoveAllowed(move))
             {
-                var gs = currentSituation.Clone();
+                var gs = _currentSituation.Clone();
                 var immediateMoveValue = gs.ApplyMove(move);
 
                 Log.Debug($"Real board position:\n{gs.Board.ToString()}");
@@ -126,7 +160,7 @@ namespace Bomberman.Api
 
                 var orderedPaths = gs.GetOrderedEvaluatedPaths().ToArray();
                 var bestMove = orderedPaths.FirstOrDefault();
-                var bestLongMove = gs.GetOrderedEvaluatedPaths().FirstOrDefault(p => p.Length > Settings.BombTimer);
+                var bestLongMove = orderedPaths.FirstOrDefault(p => p.Length > Settings.BombTimer);
 
                 Log.Debug($"Best move of length>{Settings.BombTimer} in situation is: {(bestLongMove == null ? "NULL": bestLongMove.ToString())}");
 
