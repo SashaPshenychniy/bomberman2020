@@ -43,7 +43,7 @@ namespace Bomberman.Api.Tests
             var s = new MySolver("");
             var action = s.GetAction(board.Replace("\n", "").Replace("\r", ""));
             
-            Assert.AreEqual("Act, Right", action);
+            Assert.AreEqual("Act,Right", action);
         }
     }
 }

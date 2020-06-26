@@ -135,8 +135,12 @@ namespace Bomberman.Api
             }
         }
 
+        protected Stopwatch TurnTimer = new Stopwatch();
+
         public string GetAction(string boardString)
         {
+            TurnTimer.Restart();
+
             var board = new Board(boardString);
 #if DEBUG
 #if !TEST
@@ -154,7 +158,7 @@ namespace Bomberman.Api
             Log.Info($"RESPONSE TIME: {_stopwatch.ElapsedMilliseconds,5:D}ms");
 
 #if !TEST
-            Console.SetCursorPosition(0, 0);
+            //Console.SetCursorPosition(0, 0);
 #endif
 
             return action;
