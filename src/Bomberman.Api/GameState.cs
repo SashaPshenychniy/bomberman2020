@@ -9,6 +9,20 @@ namespace Bomberman.Api
     {
         protected static readonly ILog Log = LogManager.GetLogger("MainLogger");
 
+        private void Debug(string msg)
+        {
+#if DEBUG
+            //Log.Debug(msg);
+#endif
+        }
+
+        private void Info(string msg)
+        {
+#if DEBUG
+            Log.Info(msg);
+#endif
+        }
+
         public const int PredictMovesCount = Config.PredictMovesCount;
 
         protected Board PrevBoard { get; private set; }
@@ -20,6 +34,7 @@ namespace Bomberman.Api
         protected IEnumerable<BomberState> Bombermans => Enumerable.Repeat(Me, 1).Concat(Enemies);
         protected List<MeatchoperState> Chopers { get; private set; } = new List<MeatchoperState>();
         protected Bombs Bombs { get; private set; } = new Bombs();
+        public bool IsMyRemoveBombExists => Bombs.My.Any(b => b.IsRemoteControlled);
         protected List<PerkState> Perks { get; private set; } = new List<PerkState>();
 
         private int[,] _distance;
@@ -60,7 +75,7 @@ namespace Bomberman.Api
 
             return new GameState
             {
-                PrevBoard = PrevBoard.Clone(),
+                PrevBoard = PrevBoard?.Clone(),
                 Board = Board.Clone(),
                 Time = Time,
                 Me = myClone,
@@ -88,101 +103,178 @@ namespace Bomberman.Api
             };
         }
 
-        private void ApplyMove(Move[] move)
+        public bool IsMoveAllowed(Move[] move)
         {
+            if (move.Contains(Move.Act) && Bombs.My.All(b => !b.IsRemoteControlled) && Me.BombCount == 0)
+            {
+                return false;
+            }
+
+            if (Board.IsBombAt(Me.Location) && Me.DetonatorsCount == 0 && move.Contains(Move.Act))
+            {
+                return false;
+            }
+
+            var shiftMove = move.Where(m => m != Move.Stop && m != Move.Act).ToArray();
+            if (shiftMove.Length == 1 && Board.IsBarrierAt(Me.Location.Shift(shiftMove[0])))
+            {
+                return false;
+            }
+
+            if (move.Length == 0 || move.Length > 2)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public double ApplyMove(Move[] move)
+        {
+            BombsTick();
+
+            double valueGained = 0;
+
             var posBeforeMove = Board.GetBomberman();
             var pos = posBeforeMove;
 
-            if (move[0] == Move.Act)
+            var remoteBomb = Bombs.My.FirstOrDefault(b => b.IsRemoteControlled);
+
+            if (remoteBomb == null || Me.BombCount > 0)
             {
-
-            }
-
-            foreach (var m in move)
-            {
-                if (m == Move.Stop)
+                //Move & place new bomb
+                if (move.Length == 1)
                 {
-                    continue;
-                }
-
-                if (m == Move.Act)
-                {
-                    Board.Replace(Board.GetBomberman(), Element.BOMB_BOMBERMAN);
-                    continue;
-                }
-
-                var newPos = pos.Shift(m);
-
-                if (Board.GetAt(pos) == Element.BOMB_BOMBERMAN)
-                {
-                    var bombUnderMe = Bombs.My.Single(b => b.Location == pos);
-                    var myBombClone = bombUnderMe.Clone(Me);
-                    //myBombClone.ProcessTurn();
-
-                    if (bombUnderMe.IsRemoteControlled)
+                    if (move[0] == Move.Act)
                     {
-                        Board.Replace(pos, Element.BOMB_TIMER_5);
+                        if (Me.BombCount > 0)
+                        {
+                            var me = Board.GetBomberman();
+                            Board.Replace(me, Element.BOMB_BOMBERMAN);
+                            valueGained += _bombPlacementValues.Turn[1].Values[posBeforeMove.Y, posBeforeMove.X];
+                        }
+                    }
+                    else if (move[0] == Move.Stop)
+                    {
+
                     }
                     else
                     {
-                        var newBombEl = GetBombElementByTimer(Settings.BombTimer - Time + 1 - bombUnderMe.CreationTime);
+                        BombBombermanMoved(move[0]);
+                        Board.Replace(pos, Element.BOMBERMAN);
                     }
-
-                    Board.Replace(newPos, Element.BOMBERMAN);
+                }
+                else
+                {
+                    if (Me.BombCount > 0)
+                    {
+                        if (move[0] == Move.Act)
+                        {
+                            var newPos = posBeforeMove.Shift(move[1]);
+                            Board.Replace(posBeforeMove, Element.BOMB_TIMER_5);
+                            Board.Replace(newPos, Element.BOMBERMAN);
+                            valueGained += _bombPlacementValues.Turn[1].Values[posBeforeMove.Y, posBeforeMove.X];
+                        }
+                        else
+                        {
+                            BombBombermanMoved(move[1]);
+                            Board.Replace(pos, Element.BOMB_BOMBERMAN);
+                            valueGained += _bombPlacementValues.Turn[1].Values[pos.Y, pos.X];
+                        }
+                    }
+                }
+            }
+            else
+            {
+                var shiftMove = move.Where(m => m != Move.Stop && m != Move.Act).ToArray();
+                if (shiftMove.Length == 1)
+                {
+                    pos = posBeforeMove.Shift(shiftMove[0]);
+                    Board.Replace(pos, Element.BOMBERMAN);
                 }
 
-                pos = newPos;
+                //Detonate remote bomb
+                if (move.Contains(Move.Act))
+                {
+                    Board.Replace(remoteBomb.Location, Element.Space);
+                    valueGained += _bombBlastValues.Turn[1].Values[remoteBomb.Location.Y, remoteBomb.Location.X];
+                }
             }
 
-            //myNewState.ProcessNewLocation(pos, b.GetAt(pos), Time + 1);
+            valueGained += _visitValues.Turn[1].Values[pos.Y, pos.X];
 
-
-        }
-
-        private static Element GetBombElementByTimer(int? timer)
-        {
-            if (!timer.HasValue)
+            if (!Board.IsMyBombermanDead)
             {
-                return Element.BOMB_TIMER_5;
+                ApplyNextTurnBoardState(Board);
             }
 
-            switch (timer.Value)
+            return valueGained;
+
+            void BombBombermanMoved(Move dir)
             {
-                case 5:
-                    return Element.BOMB_TIMER_5;
-                case 4:
-                    return Element.BOMB_TIMER_4;
-                case 3:
-                    return Element.BOMB_TIMER_3;
-                case 2:
-                    return Element.BOMB_TIMER_2;
-                case 1:
-                    return Element.BOMB_TIMER_1;
+                pos = posBeforeMove.Shift(dir);
+
+                if (Board.GetAt(posBeforeMove) == Element.BOMB_BOMBERMAN)
+                {
+                    var bomb = Bombs.My.Single(b => b.Location == posBeforeMove);
+                    var bc = bomb.Clone(Me.Clone());
+                    bc.ProcessTurn(Element.BOMB_BOMBERMAN);
+                    var newElement = bomb.GetElement(false, Me);
+                    Board.Replace(posBeforeMove, newElement);
+                }
+                else
+                {
+                    Board.Replace(posBeforeMove, Element.Space);
+                }
             }
 
-            throw new NotImplementedException();
+            void BombsTick()
+            {
+                foreach (var bomb in Bombs.All.Where(b=> !b.IsRemoteControlled))
+                {
+                    if (Board.IsBombUncoveredAt(bomb.Location))
+                    {
+                        Board.Replace(bomb.Location, BombState.GetBombElementByTimer(bomb.Timer - 1));
+                    }
+                }
+            }
         }
-
+        
         public void ApplyNextTurnBoardState(Board newBoard)
         {
             PrevBoard = Board;
             Board = newBoard;
 
+
+            GameState orig = null;
+
             if (IsNewRoundStarted())
             {
                 InitializeNewRound();
+                //PrevBoard = new Board(new string((char) Element.Space, newBoard.Size * newBoard.Size));
             }
             else
             {
+                orig = this.Clone();
                 ProcessNewBoardState();
             }
 
             LogGameState();
+
+            foreach (var boardLocation in Board.Locations)
+            {
+                if (Board.IsBombAt(boardLocation) && Bombs.All.All(b=>b.Location != boardLocation))
+                {
+
+                }
+            }
+
+            AnalyzeGameState();
         }
 
         private bool IsNewRoundStarted()
         {
-            if (PrevBoard == null)
+            if (PrevBoard == null || PrevBoard.IsMyBombermanDead)
             {
                 return true;
             }
@@ -192,14 +284,20 @@ namespace Bomberman.Api
             //    return true;
             //}
 
+            int wallChangesCount = 0;
             foreach (var l in Board.Locations)
             {
                 //If any wall moved without being destroyed
                 if (PrevBoard.IsAt(l, Element.DESTROYABLE_WALL) &&
-                    !Board.IsAt(l, Element.DESTROYABLE_WALL))
+                    !Board.IsAnyOfAt(l, Element.DESTROYABLE_WALL, Element.DestroyedWall))
                 {
-                    return true;
+                    wallChangesCount++;
                 }
+            }
+
+            if (wallChangesCount > 10)
+            {
+                return true;
             }
 
             return false;
@@ -207,9 +305,9 @@ namespace Bomberman.Api
 
         private void InitializeNewRound()
         {
-            Log.Debug("");
-            Log.Debug("==================================== Initializing new round ====================================");
-            Log.Debug("");
+            Info("");
+            Info("==================================== Initializing new round ====================================");
+            Info("");
 
             Time = 0;
 
@@ -496,15 +594,15 @@ namespace Bomberman.Api
 
         private void LogGameState()
         {
-            Log.Debug($"------------------------------------ TURN {Time} ------------------------------------");
-            Log.Debug($"\n{Board.ToString()}");
-            Log.Debug("GAME STATE:");
-            Log.Debug($"Me: {Me}");
-            Log.Debug($"Enemies: {string.Concat(Enemies.Select(e => "\n    " + e))}");
-            Log.Debug($"Choppers: {string.Join(", ", Chopers)}");
-            Log.Debug($"My Bombs: {string.Join(", ", Bombs.My)}");
-            Log.Debug($"Enemy Bombs: {string.Join(", ", Bombs.Enemy)}");
-            Log.Debug($"Perks: {string.Join(", ", Perks)}");
+            Log.Info($"------------------------------------ TURN {Time} ------------------------------------");
+            Log.Info($"\n{Board.ToString()}");
+            Log.Info("GAME STATE:");
+            Log.Info($"Me: {Me}");
+            Log.Info($"Enemies: {string.Concat(Enemies.Select(e => "\n    " + e))}");
+            Log.Info($"Choppers: {string.Join(", ", Chopers)}");
+            Log.Info($"My Bombs: {string.Join(", ", Bombs.My)}");
+            Log.Info($"Enemy Bombs: {string.Join(", ", Bombs.Enemy)}");
+            Log.Info($"Perks: {string.Join(", ", Perks)}");
         }
 
 
@@ -513,38 +611,48 @@ namespace Bomberman.Api
         public void AnalyzeGameState()
         {
             FillDestroyObjectValues();
-            Log.Debug($"DESTROY VALUES:\n{_destroyValues}");
+#if DEBUG
+            Debug($"DESTROY VALUES:\n{_destroyValues}");
+#endif
+
             FillVisitLocationValues();
-            Log.Debug($"VISIT VALUES:\n{_visitValues}");
+#if DEBUG
+            Debug($"VISIT VALUES:\n{_visitValues}");
+#endif
             FillBombPlacementValues();
-            Log.Debug($"BOMB BLAST VALUES:\n{_bombBlastValues}");
-            Log.Debug($"BOMB PLACEMENT VALUES:\n{_bombPlacementValues}");
+#if DEBUG
+            Debug($"BOMB BLAST VALUES:\n{_bombBlastValues}");
+            Debug($"BOMB PLACEMENT VALUES:\n{_bombPlacementValues}");
+#endif
 
             FillDistance();
 
             FillAggregatedVisitLocationValues();
-            Log.Debug($"AGG VISIT VALUES:\n{_aggVisitValues}");
+#if DEBUG
+            Debug($"AGG VISIT VALUES:\n{_aggVisitValues}");
 
-
-            Log.Debug($"Blasts:\n {_bombBlastProbabilities}");
-            Log.Debug($"Distances:\n{_distance.ToLogStr(x => x.ToString(), 3)}");
+            Debug($"Blasts:\n {_bombBlastProbabilities}");
+            Debug($"Distances:\n{_distance.ToLogStr(x => x.ToString(), 3)}");
 
             for (int i = 1; i <= PredictMovesCount; i++)
             {
-                Log.Debug($"Directions at step {i}:\n{_directions[i].ToLogStr(x => x.ToString().Substring(0, 1), 3)}");
+                Debug($"Directions at step {i}:\n{_directions[i].ToLogStr(x => x.ToString().Substring(0, 1), 3)}");
             }
+#endif
 
             FillPathValues();
 
+#if DEBUG
             for (int i = 1; i <= PredictMovesCount; i++)
             {
-                Log.Debug($"Path Values with length {i}:\n{_pathValues[i].ToLogStr(x => x.ToString("F2"), 7)}");
+                Debug($"Path Values with length {i}:\n{_pathValues[i].ToLogStr(x => x.ToString("F2"), 7)}");
             }
+#endif
         }
 
         public IEnumerable<EvaluatedPath> GetOrderedEvaluatedPaths()
         {
-            return GetAllEvaluatedPaths().OrderBy(p => p.Score);
+            return GetAllEvaluatedPaths().OrderByDescending(p => p.Score);
         }
 
         public class EvaluatedPath
@@ -554,6 +662,11 @@ namespace Bomberman.Api
             public List<Point> Path { get; set; }
             public List<Move> Directions { get; set; }
             public double Score { get; set; }
+
+            public override string ToString()
+            {
+                return $"V={Score} to {Target} - {string.Concat(Directions.Select(d => d.ToString("G").Substring(0, 1)))}";
+            }
         }
 
         private IEnumerable<EvaluatedPath> GetAllEvaluatedPaths()
@@ -1178,7 +1291,7 @@ namespace Bomberman.Api
         {
             FillBombBlastProbabilities();
             f.AddWithMultiplier(_bombBlastProbabilities, Config.DeathExpectedValueLoss);
-            //Log.Debug($"BLAST VALUES:\n{_bombBlastProbabilities}");
+            //Debug($"BLAST VALUES:\n{_bombBlastProbabilities}");
         }
 
         private void FillBombBlastProbabilities()

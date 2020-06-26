@@ -133,7 +133,7 @@ namespace Bomberman.Api
         {
             get
             {
-                return _board.Any(row => row.Contains((char) Element.DEAD_BOMBERMAN));
+                return !_board.Any(row => row.Contains((char) Element.BOMBERMAN) || row.Contains((char)Element.BOMB_BOMBERMAN));
                 //return BoardString.Contains((char)Element.DEAD_BOMBERMAN);
             }
         }
@@ -283,6 +283,16 @@ namespace Bomberman.Api
         public bool IsBombAt(Point location)
         {
             return IsAnyOfAt(location, BombIndicators);
+        }
+
+        public bool IsBombUncoveredAt(Point location)
+        {
+            return IsAnyOfAt(location,
+                Element.BOMB_TIMER_1,
+                Element.BOMB_TIMER_2,
+                Element.BOMB_TIMER_3,
+                Element.BOMB_TIMER_4,
+                Element.BOMB_TIMER_5);
         }
 
         private static Element[] PerkIndicators = new[]

@@ -18,7 +18,7 @@ namespace Bomberman.Api.Tests
             var board = @"
 ☼☼☼☼☼☼☼☼☼☼☼☼☼☼☼☼☼☼☼☼☼☼☼
 ☼☺  3#           #   #☼
-☼ ☼ ☼#☼ ☼ ☼ ☼ ☼♥☼ ☼ ☼#☼
+☼ ☼ ☼♥☼ ☼ ☼ ☼ ☼ ☼ ☼ ☼#☼
 ☼&  +   &  #  #  # #  ☼
 ☼ ☼ ☼ ☼ ☼ ☼ ☼ ☼ ☼ ☼ ☼ ☼
 ☼#c  #         r    ##☼
@@ -42,6 +42,8 @@ namespace Bomberman.Api.Tests
 
             var s = new MySolver("");
             var action = s.GetAction(board.Replace("\n", "").Replace("\r", ""));
+            
+            Assert.AreEqual("Act, Right", action);
         }
     }
 }

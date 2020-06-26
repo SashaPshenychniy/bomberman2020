@@ -11,7 +11,7 @@ namespace Bomberman.Api
         {
         }
 
-        protected abstract IEnumerable<Move> GetMoves();
+        protected abstract IEnumerable<Move> GetMoves(Board gameBoard);
 
         protected internal override string Get(Board gameBoard)
         {
@@ -19,7 +19,7 @@ namespace Bomberman.Api
             try
             {
 #endif
-                return string.Join(",", GetMoves().Select(m => m.ToString()));
+                return string.Join(",", GetMoves(gameBoard).Select(m => m.ToString()));
 #if !DEBUG
             }
             catch (Exception e)

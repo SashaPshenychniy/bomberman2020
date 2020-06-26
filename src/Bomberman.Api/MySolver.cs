@@ -36,35 +36,35 @@ namespace Bomberman.Api
         {
         }
 
-        protected override IEnumerable<Move> GetMoves()
+        protected override IEnumerable<Move> GetMoves(Board gameBoard)
         {
-            WaitingInput = true;
-            LastKey = ConsoleKey.B;
-            //var key = Console.ReadKey(true);
-            while (LastKey == ConsoleKey.B)
-            {
-                Thread.Sleep(1);
-            }
-            WaitingInput = false;
-            switch (LastKey)
-            {
-                case ConsoleKey.UpArrow:
-                    return new []{ Move.Up};
-                case ConsoleKey.DownArrow:
-                    return new[] { Move.Down };
-                case ConsoleKey.LeftArrow:
-                    return new[] { Move.Left };
-                case ConsoleKey.RightArrow:
-                    return new[] { Move.Right };
-                case ConsoleKey.Spacebar:
-                    return new[] { Move.Act };
-                default:
-                    return new[] {Move.Stop};
-            }
+            //WaitingInput = true;
+            //LastKey = ConsoleKey.B;
+            ////var key = Console.ReadKey(true);
+            //while (LastKey == ConsoleKey.B)
+            //{
+            //    Thread.Sleep(1);
+            //}
+            //WaitingInput = false;
+            //switch (LastKey)
+            //{
+            //    case ConsoleKey.UpArrow:
+            //        return new[] { Move.Up };
+            //    case ConsoleKey.DownArrow:
+            //        return new[] { Move.Down };
+            //    case ConsoleKey.LeftArrow:
+            //        return new[] { Move.Left };
+            //    case ConsoleKey.RightArrow:
+            //        return new[] { Move.Right };
+            //    case ConsoleKey.Spacebar:
+            //        return new[] { Move.Act };
+            //    default:
+            //        return new[] { Move.Stop };
+            //}
 
             _stopwatch.Restart();
 
-            //currentSituation.Initialize(Time, Board, Me, Enemies, Chopers, Bombs, Perks);
+            currentSituation.ApplyNextTurnBoardState(gameBoard);
 
             Log.Info($"Precalc time: {_stopwatch.ElapsedMilliseconds:F0}ms");
             _stopwatch.Restart();
@@ -78,6 +78,8 @@ namespace Bomberman.Api
 
         private Move[] FindBestMove()
         {
+            return new[] { Move.Act };
+
             if (currentSituation.Board.IsMyBombermanDead)
             {
                 return new[] {Move.Stop};
@@ -101,14 +103,51 @@ namespace Bomberman.Api
                 return new[]{Move.Stop};
             }
 
+            Log.Debug($"Best move among alternatives: {string.Join(", ", best)} with value={bestValue}");
+            
             return best;
         }
 
         private double EvaluateMove(Move[] move)
         {
-            //var b = Board.Clone();
+            Log.Debug($"....................................... BEGIN EVALUATING MOVE: {string.Join(", ", move)} .......................................");
 
-            return 0;
+            double moveScore;
+            
+            if (currentSituation.IsMoveAllowed(move))
+            {
+                var gs = currentSituation.Clone();
+                var immediateMoveValue = gs.ApplyMove(move);
+
+                Log.Debug($"Real board position:\n{gs.Board.ToString()}");
+                Log.Debug($"Move: {string.Join(", ", move)}");
+                Log.Debug($"Provisioned board position:\n{gs.Board.ToString()}");
+                Log.Debug($"Move immediate value: {immediateMoveValue}");
+
+                var orderedPaths = gs.GetOrderedEvaluatedPaths().ToArray();
+                var bestMove = orderedPaths.FirstOrDefault();
+                var bestLongMove = gs.GetOrderedEvaluatedPaths().FirstOrDefault(p => p.Length > Settings.BombTimer);
+
+                Log.Debug($"Best move of length>{Settings.BombTimer} in situation is: {(bestLongMove == null ? "NULL": bestLongMove.ToString())}");
+
+                if (bestLongMove == null) // It's likely we are locked somewhere
+                {
+                    moveScore = GameState.PathValueNegativeInf;
+                }
+                else
+                {
+                    moveScore = immediateMoveValue + bestMove.Score;
+                    Log.Debug($"Total move alternative score: {moveScore}");
+                }
+            }
+            else
+            {
+                moveScore = GameState.PathValueNegativeInf*2;
+            }
+
+            Log.Debug($"....................................... END EVALUATING MOVE: {string.Join(", ", move)}. SCORE: {moveScore} ......................");
+
+            return moveScore;
         }
 
         

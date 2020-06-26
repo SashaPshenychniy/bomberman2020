@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Bomberman.Api
@@ -34,6 +35,47 @@ namespace Bomberman.Api
                 Radius = Radius,
                 Timer = Timer
             };
+        }
+
+        public Element GetElement(bool actCmdSent, BomberState me)
+        {
+            if (IsRemoteControlled && actCmdSent && WhoPlaced == me)
+            {
+                return Element.BOOM;
+            }
+
+            if (IsRemoteControlled)
+            {
+                return Element.BOMB_TIMER_5;
+            }
+
+            return GetBombElementByTimer(Timer);
+        }
+
+        public static Element GetBombElementByTimer(int? timer)
+        {
+            if (!timer.HasValue)
+            {
+                return Element.BOMB_TIMER_5;
+            }
+
+            switch (timer.Value)
+            {
+                case 5:
+                    return Element.BOMB_TIMER_5;
+                case 4:
+                    return Element.BOMB_TIMER_4;
+                case 3:
+                    return Element.BOMB_TIMER_3;
+                case 2:
+                    return Element.BOMB_TIMER_2;
+                case 1:
+                    return Element.BOMB_TIMER_1;
+                case 0:
+                    return Element.BOOM;
+            }
+
+            throw new NotImplementedException();
         }
 
         public void ProcessTurn(Element newState)
